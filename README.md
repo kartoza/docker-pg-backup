@@ -3,8 +3,8 @@
 
 A simple docker container that runs PostGIS backups. It is intended to be used
 primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
-docker image. By default it will create a backup once per night in a nicely
-ordered directory by year / month.
+docker image. By default it will create a backup once per night (at 23h00)in a 
+nicely ordered directory by year / month.
 
 Visit our page on the docker hub at: https://github.com/kartoza/docker-pg-backup
 
@@ -41,12 +41,17 @@ git clone git://github.com/kartoza/docker-postgis
 To create a running container do:
 
 ```
-docker run --name="backups" --hostname="pg-backups" -link db -i -d kartoza/pg-backups
-```
+docker run --name="backups"\
+           --hostname="pg-backups" \
+           --link=watchkeeper_db_1:db \
+           -v backups:/backups \
+           -i -d kartoza/pg-backups```
+           
+In this example I used a volume into which the actual backups will be
+stored.
 
 # Specifying environment
 
-**Note:** This is not implemented yet:
 
 You can also use the following environment variables to pass a 
 user name and password etc for the database connection.
@@ -64,6 +69,21 @@ Example usage:
 ```
 docker run -e PGUSER=bob -e PGPASSWORD=secret -link db -i -d kartoza/pg-backups
 ```
+
+One other environment variable you may like to set is a prefix for the 
+database dumps.
+
+
+Variable | Expected | Default if not specified
+---------|----------|--------------------------
+DUMPPREFIX | <text> | PG_
+
+Example usage:
+
+```
+docker run -e DUMPPREFIX=foo -link db -i -d kartoza/pg-backups
+```
+
 
 
 ## Credits
