@@ -45,7 +45,8 @@ docker run --name="backups"\
            --hostname="pg-backups" \
            --link=watchkeeper_db_1:db \
            -v backups:/backups \
-           -i -d kartoza/pg-backups```
+           -i -d kartoza/pg-backups
+```
            
 In this example I used a volume into which the actual backups will be
 stored.
@@ -56,13 +57,12 @@ stored.
 You can also use the following environment variables to pass a 
 user name and password etc for the database connection.
 
-Variable | Expected | Default if not specified
----------|----------|--------------------------
-PGUSER | <user> | docker
-PGPASSWORD | <password> | docker
-PGPORT | <port> | 5432
-PGHOST | <hostname / ip> | db
-PGDATABASE | <database name> | gis
+
+PGUSER if not set, defaults to : docker
+PGPASSWORD if not set, defaults to : docker
+PGPORT if not set, defaults to : 5432
+PGHOST if not set, defaults to : db
+PGDATABASE if not set, defaults to : gis
 
 Example usage:
 
@@ -73,10 +73,7 @@ docker run -e PGUSER=bob -e PGPASSWORD=secret -link db -i -d kartoza/pg-backups
 One other environment variable you may like to set is a prefix for the 
 database dumps.
 
-
-Variable | Expected | Default if not specified
----------|----------|--------------------------
-DUMPPREFIX | <text> | PG_
+DUMPPREFIX if not set, defaults to : PG
 
 Example usage:
 
@@ -84,6 +81,36 @@ Example usage:
 docker run -e DUMPPREFIX=foo -link db -i -d kartoza/pg-backups
 ```
 
+Here is a more typical example using docker-composer (formerly known as fig):
+
+For ``docker-compose.yml``:
+
+```
+db:
+  image: kartoza/postgis
+  environment:
+    - USERNAME=docker
+    - PASS=docker
+
+dbbackup:
+  image: kartoza/pg-backup
+  volumes:
+    - ./backup:/backup
+  environment:
+    - DUMPPREFIX=watchkeeper
+    - PGHOST=db
+    - PGUSER=docker
+    - PGPASSWORD=docker
+    - PGPORT=5432
+  links:
+    - db:db    
+```
+
+Then run using:
+
+```
+docker-compose up -d dbbackup
+```
 
 
 ## Credits
