@@ -5,7 +5,7 @@ install:
   - sudo mkdir -p /var/lib/docker
   - echo exit 101 | sudo tee /usr/sbin/policy-rc.d
   - sudo chmod +x /usr/sbin/policy-rc.d
-  - sudo apt-get install -y git lxc lxc-docker aufs-tools cgroup-lite pip
+  - sudo apt-get install -y git lxc lxc-docker aufs-tools cgroup-lite
   - sudo pip install docker-compose
 
 

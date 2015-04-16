@@ -58,11 +58,11 @@ You can also use the following environment variables to pass a
 user name and password etc for the database connection.
 
 
-PGUSER if not set, defaults to : docker
-PGPASSWORD if not set, defaults to : docker
-PGPORT if not set, defaults to : 5432
-PGHOST if not set, defaults to : db
-PGDATABASE if not set, defaults to : gis
+* PGUSER if not set, defaults to : docker
+* PGPASSWORD if not set, defaults to : docker
+* PGPORT if not set, defaults to : 5432
+* PGHOST if not set, defaults to : db
+* PGDATABASE if not set, defaults to : gis
 
 Example usage:
 
@@ -73,7 +73,7 @@ docker run -e PGUSER=bob -e PGPASSWORD=secret -link db -i -d kartoza/pg-backups
 One other environment variable you may like to set is a prefix for the 
 database dumps.
 
-DUMPPREFIX if not set, defaults to : PG
+* DUMPPREFIX if not set, defaults to : PG
 
 Example usage:
 
