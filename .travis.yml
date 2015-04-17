@@ -10,7 +10,6 @@ install:
 
 
 script:
-  - cd
   - docker-compose up -d dbbackup
   - docker exec dockerpgbackups_dbbackup_1
   - date --set="2012-6-29 10:59 PM"
