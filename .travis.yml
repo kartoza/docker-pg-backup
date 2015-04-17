@@ -10,10 +10,12 @@ install:
 
 
 script:
+  - cd docker-pg-backup
   - docker-compose up -d dbbackup
-  - docker exec dockerpgbackups_dbbackup_1
-  - date --set="2012-6-29 10:59 PM"
-
+  - docker exec dockerpgbackups_dbbackup_1 date --set="2012-6-29 10:59.59 PM"
+  - wait 4
+  - ls -lah backups/*
+  - if [[ ! -f "backups/2012/June/foo.dmp" ]]; then exit 1; fi
 notifications:
   irc:
     channels:
