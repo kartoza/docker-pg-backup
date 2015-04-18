@@ -2,6 +2,7 @@ install:
   - wget -O install-docker.sh https://get.docker.com
   - sudo chmod +x install-docker.sh
   - sudo ./install-docker.sh
+  - cat install-docker.sh
   - sudo pip install docker-compose
 
 
