@@ -1,11 +1,7 @@
 install:
-  - sudo sh -c "wget -qO- https://get.docker.io/gpg | apt-key add -"
-  - sudo sh -c "echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list"
-  - sudo apt-get update
-  - sudo mkdir -p /var/lib/docker
-  - echo exit 101 | sudo tee /usr/sbin/policy-rc.d
-  - sudo chmod +x /usr/sbin/policy-rc.d
-  - sudo apt-get install -y git lxc lxc-docker aufs-tools cgroup-lite
+  - wget -O install-docker.sh https://get.docker.com
+  - sudo chmod +x install-docker.sh
+  - sudo ./install-docker.sh
   - sudo pip install docker-compose
 
 
