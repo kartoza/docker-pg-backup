@@ -6,8 +6,8 @@ primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
 docker image. By default it will create a backup once per night (at 23h00)in a 
 nicely ordered directory by year / month.
 
-Visit our page on the docker hub at: https://registry.hub.docker.com/u/kartoza/pg-backup/
-Visit our page on github at: https://github.com/kartoza/docker-pg-backup
+* Visit our page on the docker hub at: https://registry.hub.docker.com/u/kartoza/pg-backup/
+* Visit our page on github at: https://github.com/kartoza/docker-pg-backup
 
 
 ## Getting the image
