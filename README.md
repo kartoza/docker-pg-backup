@@ -88,22 +88,29 @@ For ``docker-compose.yml``:
 ```
 db:
   image: kartoza/postgis
+  volumes:
+    - ./pg/postgres_data:/var/lib/postgresql
+    - ./pg/setup_data:/home/setup
   environment:
     - USERNAME=docker
     - PASS=docker
 
-dbbackup:
-  image: kartoza/pg-backup
+dbbackups:
+  image: kartoza/pg-backups
+  hostname: pg-backups
   volumes:
-    - ./backup:/backup
+    - ./backups:/backups
+  links:
+    - db:db
   environment:
-    - DUMPPREFIX=watchkeeper
-    - PGHOST=db
+    - DUMPPREFIX=PG_YOURSITE
+    # These are all defaults anyway, but setting explicitly in
+    # case we ever want to ever use different credentials
     - PGUSER=docker
     - PGPASSWORD=docker
     - PGPORT=5432
-  links:
-    - db:db    
+    - PGHOST=db
+    - PGDATABASE=gis  
 ```
 
 Then run using:
