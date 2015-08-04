@@ -46,7 +46,7 @@ docker run --name="backups"\
            --hostname="pg-backups" \
            --link=watchkeeper_db_1:db \
            -v backups:/backups \
-           -i -d kartoza/pg-backups
+           -i -d kartoza/pg-backup
 ```
            
 In this example I used a volume into which the actual backups will be
@@ -68,7 +68,7 @@ user name and password etc for the database connection.
 Example usage:
 
 ```
-docker run -e PGUSER=bob -e PGPASSWORD=secret -link db -i -d kartoza/pg-backups
+docker run -e PGUSER=bob -e PGPASSWORD=secret -link db -i -d kartoza/pg-backup
 ```
 
 One other environment variable you may like to set is a prefix for the 
@@ -79,7 +79,7 @@ database dumps.
 Example usage:
 
 ```
-docker run -e DUMPPREFIX=foo -link db -i -d kartoza/pg-backups
+docker run -e DUMPPREFIX=foo -link db -i -d kartoza/pg-backup
 ```
 
 Here is a more typical example using docker-composer (formerly known as fig):
@@ -97,7 +97,7 @@ db:
     - PASS=docker
 
 dbbackups:
-  image: kartoza/pg-backups
+  image: kartoza/pg-backup
   hostname: pg-backups
   volumes:
     - ./backups:/backups
