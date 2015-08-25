@@ -7,6 +7,8 @@ install:
 script:
   - ls -lah
   - docker-compose up -d dbbackup
+  - docker-compose ps
+  - docker exec dockerpgbackups_dbbackup_1 ls
   - docker exec dockerpgbackups_dbbackup_1 date --set="2012-6-29 10:59.59 PM"
   - wait 4
   - ls -lah backups/*
