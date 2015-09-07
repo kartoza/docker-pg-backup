@@ -20,8 +20,15 @@ get our docker trusted build like this:
 
 
 ```
-docker pull kartoza/pg-backup
+docker pull kartoza/pg-backup:latest
+docker pull kartoza/pg-backup:9.4
+docker pull kartoza/pg-backup:9.3
 ```
+
+We highly suggest that you use a tagged image (9.4 or 9.3 currently available) as 
+latest may change and may not successfully back up your database. Use the same or 
+greater version of postgis as the database you are backing up.
+
 
 To build the image yourself without apt-cacher (also consumes more bandwidth
 since deb packages need to be refetched each time you build) do:
@@ -46,7 +53,7 @@ docker run --name="backups"\
            --hostname="pg-backups" \
            --link=watchkeeper_db_1:db \
            -v backups:/backups \
-           -i -d kartoza/pg-backup
+           -i -d kartoza/pg-backup:9.4
 ```
            
 In this example I used a volume into which the actual backups will be
@@ -88,7 +95,7 @@ For ``docker-compose.yml``:
 
 ```
 db:
-  image: kartoza/postgis
+  image: kartoza/postgis:9.4-2.1
   volumes:
     - ./pg/postgres_data:/var/lib/postgresql
     - ./pg/setup_data:/home/setup
@@ -97,7 +104,7 @@ db:
     - PASS=docker
 
 dbbackups:
-  image: kartoza/pg-backup
+  image: kartoza/pg-backup:9.4
   hostname: pg-backups
   volumes:
     - ./backups:/backups
