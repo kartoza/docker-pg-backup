@@ -1,4 +1,4 @@
-FROM kartoza/docker-postgis:9.3
+FROM kartoza/postgis:9.3
 MAINTAINER tim@kartoza.com
  
 RUN apt-get install -y postgresql-client
