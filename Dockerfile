@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM kartoza/docker-postgis:9.3
 MAINTAINER tim@kartoza.com
  
 RUN apt-get install -y postgresql-client
