@@ -33,6 +33,18 @@ if [ -z "${DUMPPREFIX}" ]; then
   DUMPPREFIX=PG
 fi
 
+if [ -z "${DAILY}" ]; then
+  DAILY=7
+fi
+
+if [ -z "${MONTHLY}" ]; then
+  MONTHLY=12
+fi
+
+if [ -z "${YEARLY}" ]; then
+  YEARLY=3
+fi
+
 # Now write these all to case file that can be sourced
 # by then cron job - we need to do this because
 # env vars passed to docker will not be available
@@ -45,6 +57,9 @@ export PGPORT=$PGPORT
 export PGHOST=$PGHOST
 export PGDATABASE=$PGDATABASE
 export DUMPPREFIX=$DUMPPREFIX
+export DAILY=$DAILY
+export MONTHLY=$MONTHLY
+export YEARLY=$YEARLY
  " > /pgenv.sh
 
 echo "Start script running with these environment options"

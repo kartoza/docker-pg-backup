@@ -6,5 +6,8 @@ ADD backups-cron /etc/cron.d/backups-cron
 RUN touch /var/log/cron.log
 ADD backups.sh /backups.sh
 ADD start.sh /start.sh
+ADD cleanup.sh /cleanup.sh
+ADD cleanup.py /cleanup.py
+RUN chmod +x /cleanup.sh /cleanup.py
  
 CMD ["/start.sh"]
