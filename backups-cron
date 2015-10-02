@@ -4,10 +4,7 @@
 # Run the backups at 11pm each night
 0 23 * * * root /backups.sh 2>&1
 
-@monthly root /backups.sh
-
-@yearly root /backups.sh
-
-0 23 * * * * root /cleanup.sh
+# cleanup is executed in the next hour of backup
+0 0 * * * root /cleanup.sh 2>&1
 
 # We need a blank line here for it to be a valid cron file

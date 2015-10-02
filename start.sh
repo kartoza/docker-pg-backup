@@ -45,6 +45,18 @@ if [ -z "${YEARLY}" ]; then
   YEARLY=3
 fi
 
+if [ -z "${SFTP_USER}" ]; then
+  SFTP_USER=user
+fi
+
+if [ -z "${SFTP_PASSWORD}" ]; then
+  SFTP_PASSWORD=password
+fi
+
+if [ -z "${SFTP_HOST}" ]; then
+  SFTP_HOST=localhost
+fi
+
 # Now write these all to case file that can be sourced
 # by then cron job - we need to do this because
 # env vars passed to docker will not be available
@@ -60,6 +72,10 @@ export DUMPPREFIX=$DUMPPREFIX
 export DAILY=$DAILY
 export MONTHLY=$MONTHLY
 export YEARLY=$YEARLY
+export SFTP_HOST=$SFTP_HOST
+export SFTP_USER=$SFTP_USER
+export SFTP_PASSWORD=$SFTP_PASSWORD
+export SFTP_DIR=$SFTP_DIR
  " > /pgenv.sh
 
 echo "Start script running with these environment options"

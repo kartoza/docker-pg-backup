@@ -6,14 +6,27 @@ Cleanup scripts to clean unnecessary backup
 import os
 from datetime import datetime, timedelta
 import math
+import paramiko
+from paramiko.sftp_client import SFTPClient
 
 __author__ = 'lucernae'
 
 
-if __name__ == '__main__':
+def get_sftp_session(host, user, password, working_dir):
+    conn = None
+    try:
+        transport = paramiko.Transport(host)
+        transport.connect(username=user, password=password)
+        conn = SFTPClient.from_transport(transport)
+        conn.chdir(working_dir)
+        print 'SFTP connection created'
+    except Exception as e:
+        print e.message
+        pass
+    return conn
 
-    log_file = open('/logfile', 'w+')
-    # get how many backups needs to be persisted
+
+def main():
     db_prefix = os.environ['DUMPPREFIX']
     db_name = os.environ['PGDATABASE']
 
@@ -29,19 +42,30 @@ if __name__ == '__main__':
         yearly = int(os.environ['YEARLY'])
     except KeyError:
         yearly = 3
-
-    log_file.write('%s\n' % daily)
-    log_file.write('%s\n' % monthly)
-    log_file.write('%s\n' % yearly)
+    try:
+        host = os.environ['SFTP_HOST']
+    except KeyError:
+        host = 'localhost'
+    try:
+        user = os.environ['SFTP_USER']
+    except KeyError:
+        user = 'user'
+    try:
+        password = os.environ['SFTP_PASSWORD']
+    except KeyError:
+        password = 'password'
+    try:
+        working_dir = os.environ['SFTP_DIR']
+    except KeyError:
+        working_dir = '/'
 
     # just get a localtime because we are dealing with the same timezone
     today = datetime.now()
 
-    log_file.write('%s\n' % today)
-
     # iterate over the files
     # iterate bottom up, because we want to delete things
-    for root, dirs, files in os.walk("/backups", topdown=False):
+    root_folder = '/backups'
+    for root, dirs, files in os.walk(root_folder, topdown=False):
         # process files
         for f in files:
             # extract timestamp from name in the format:
@@ -75,8 +99,20 @@ if __name__ == '__main__':
                     num_days = daily
 
                 interval = timedelta(days=num_days)
+
                 if time_diff > interval:
-                    os.remove(file_path)
+                    # os.remove(file_path)
+                    # delete remote backup
+
+                    # create sftp link
+                    sftp = get_sftp_session(host, user, password, working_dir)
+                    rel_path = os.path.relpath(file_path, root_folder)
+                    try:
+                        sftp.remove(rel_path)
+                        sftp.close()
+                    except IOError as e:
+                        print e.message
+                        pass
 
             except ValueError:
                 continue
@@ -87,6 +123,18 @@ if __name__ == '__main__':
 
             # delete empty directory
             if not os.listdir(dir_path):
-                os.removedirs(dir_path)
+                # os.removedirs(dir_path)
 
-    log_file.close()
+                # create sftp link
+                sftp = get_sftp_session(host, user, password, working_dir)
+                rel_path = os.path.relpath(dir_path, root_folder)
+                try:
+                    sftp.rmdir(rel_path)
+                    sftp.close()
+                except IOError as e:
+                    print e.message
+                    pass
+
+
+if __name__ == '__main__':
+    main()
