@@ -10,7 +10,7 @@ ADD backups.sh /backups.sh
 ADD start.sh /start.sh
 ADD cleanup.sh /cleanup.sh
 ADD cleanup.py /cleanup.py
-ADD sftp_push.py /sftp_push.py
+ADD sftp_remote.py /sftp_remote.py
 RUN chmod +x /cleanup.sh /cleanup.py
  
 CMD ["/start.sh"]

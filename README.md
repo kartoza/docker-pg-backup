@@ -65,12 +65,25 @@ stored.
 You can also use the following environment variables to pass a 
 user name and password etc for the database connection.
 
+## Database specific variables
 
 * PGUSER if not set, defaults to : docker
 * PGPASSWORD if not set, defaults to : docker
 * PGPORT if not set, defaults to : 5432
 * PGHOST if not set, defaults to : db
 * PGDATABASE if not set, defaults to : gis
+
+## Remote backup connection variables
+
+### SFTP
+
+* USE_SFTP_BACKUP defaults to False. If set, it means the service will try to
+  push the backup files to a remote sftp server
+* SFTP_HOST should be set to IP address or domain name of SFTP server
+* SFTP_USER should be set to relevant SFTP user
+* SFTP_PASSWORD should be set to relevant SFTP password
+* SFTP_DIR should be set to the default working directory that the backup will
+  be stored into (in the SFTP server)
 
 Example usage:
 
@@ -127,8 +140,42 @@ Then run using:
 docker-compose up -d dbbackup
 ```
 
+# Remote backup connection
 
-## Credits
+Sometimes we need to mirrors our local backup to another backup server. For
+now, the means is supported via SFTP connection. By specifying SFTP related
+environment variables, pg-backup will try to copy new backup to specified
+remote server and cleanup unnecessary backup files in remote server (if it is
+deleted in local backup server). The service will try to make backup files
+synchronized between servers.
+
+At some times, we may want to manually force each server to resync the files.
+We wrapped two additional simple commands in start.sh script:
+
+* Push to remote SFTP. Push all local backup files to specified remote SFTP
+server. If there are any conflicting backup files in remote,
+it will be overwritten.
+* Pull from remote SFTP. Pull all remote backup files to local directory.
+Similarly if there are any conflicting local backup files, it will be
+overwritten.
+
+## Executing the command
+
+You can directly execute the command using docker exec or run because the
+command is received in start.sh script. For example, if you already have a
+pg-backup container running named pg-backup:
+
+```
+docker exec pg-backup /bin/sh -c "/start.sh push-to-remote-sftp"
+```
+
+The above command will push all local backup files in existing container
+to remote sftp server.
+
+# Credits
 
 Tim Sutton (tim@kartoza.com)
 April 2015
+
+Rizky Maulana Nugraha (lana.pcfre@gmail.com)
+October 2015

@@ -1,29 +1,17 @@
 #!/usr/bin/env python
 # coding=utf-8
 """
-Cleanup scripts to clean unnecessary backup
+Cleanup scripts to clean unnecessary backup in local and remote
 """
 import os
 from datetime import datetime, timedelta
 import math
-import paramiko
-from paramiko.sftp_client import SFTPClient
+import sftp_remote
+from sftp_remote import get_sftp_session
+
 
 __author__ = 'lucernae'
-
-
-def get_sftp_session(host, user, password, working_dir):
-    conn = None
-    try:
-        transport = paramiko.Transport(host)
-        transport.connect(username=user, password=password)
-        conn = SFTPClient.from_transport(transport)
-        conn.chdir(working_dir)
-        print 'SFTP connection created'
-    except Exception as e:
-        print e.message
-        pass
-    return conn
+__email__ = 'lana.pcfre@gmail.com'
 
 
 def main():
@@ -42,22 +30,6 @@ def main():
         yearly = int(os.environ['YEARLY'])
     except KeyError:
         yearly = 3
-    try:
-        host = os.environ['SFTP_HOST']
-    except KeyError:
-        host = 'localhost'
-    try:
-        user = os.environ['SFTP_USER']
-    except KeyError:
-        user = 'user'
-    try:
-        password = os.environ['SFTP_PASSWORD']
-    except KeyError:
-        password = 'password'
-    try:
-        working_dir = os.environ['SFTP_DIR']
-    except KeyError:
-        working_dir = '/'
 
     # just get a localtime because we are dealing with the same timezone
     today = datetime.now()
@@ -101,18 +73,19 @@ def main():
                 interval = timedelta(days=num_days)
 
                 if time_diff > interval:
-                    # os.remove(file_path)
+                    os.remove(file_path)
                     # delete remote backup
 
-                    # create sftp link
-                    sftp = get_sftp_session(host, user, password, working_dir)
-                    rel_path = os.path.relpath(file_path, root_folder)
-                    try:
-                        sftp.remove(rel_path)
-                        sftp.close()
-                    except IOError as e:
-                        print e.message
-                        pass
+                    if sftp_remote.use_sftp_backup:
+                        # create sftp link
+                        sftp = get_sftp_session()
+                        rel_path = os.path.relpath(file_path, root_folder)
+                        try:
+                            print 'remove %s' % rel_path
+                            sftp.remove(rel_path)
+                            sftp.close()
+                        except Exception as e:
+                            print e.message
 
             except ValueError:
                 continue
@@ -123,17 +96,18 @@ def main():
 
             # delete empty directory
             if not os.listdir(dir_path):
-                # os.removedirs(dir_path)
+                os.removedirs(dir_path)
 
-                # create sftp link
-                sftp = get_sftp_session(host, user, password, working_dir)
-                rel_path = os.path.relpath(dir_path, root_folder)
-                try:
-                    sftp.rmdir(rel_path)
-                    sftp.close()
-                except IOError as e:
-                    print e.message
-                    pass
+                if sftp_remote.use_sftp_backup:
+                    # create sftp link
+                    sftp = get_sftp_session()
+                    rel_path = os.path.relpath(dir_path, root_folder)
+                    try:
+                        print 'remove folder %s' % rel_path
+                        sftp.rmdir(rel_path)
+                        sftp.close()
+                    except Exception as e:
+                        print e.message
 
 
 if __name__ == '__main__':

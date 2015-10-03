@@ -45,6 +45,10 @@ if [ -z "${YEARLY}" ]; then
   YEARLY=3
 fi
 
+if [ -z "${USE_SFTP_BACKUP}" ]; then
+  USE_SFTP_BACKUP=False
+fi
+
 if [ -z "${SFTP_USER}" ]; then
   SFTP_USER=user
 fi
@@ -55,6 +59,10 @@ fi
 
 if [ -z "${SFTP_HOST}" ]; then
   SFTP_HOST=localhost
+fi
+
+if [ -z "${SFTP_DIR}" ]; then
+  SFTP_DIR="/"
 fi
 
 # Now write these all to case file that can be sourced
@@ -72,6 +80,7 @@ export DUMPPREFIX=$DUMPPREFIX
 export DAILY=$DAILY
 export MONTHLY=$MONTHLY
 export YEARLY=$YEARLY
+export USE_SFTP_BACKUP=$USE_SFTP_BACKUP
 export SFTP_HOST=$SFTP_HOST
 export SFTP_USER=$SFTP_USER
 export SFTP_PASSWORD=$SFTP_PASSWORD
@@ -84,3 +93,13 @@ set | grep PG
 # Now launch cron in then foreground.
 
 cron -f
+
+if [ "$1" == "push-to-remote-sftp" ]; then
+  # push all local backup files to remote sftp server
+  python -c "from sftp_remote import push_backups_to_remote; push_backups_to_remote()"
+fi
+
+if [ "$1" == "pull-from-remote-sftp" ]; then
+  # pull all remote sftp backup files to local server
+  python -c "from sftp_remote import pull_backups_from_remote; pull_backups_from_remote()"
+fi
