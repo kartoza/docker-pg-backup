@@ -72,6 +72,15 @@ user name and password etc for the database connection.
 * PGPORT if not set, defaults to : 5432
 * PGHOST if not set, defaults to : db
 * PGDATABASE if not set, defaults to : gis
+* DAILY number of daily backups to keep, defaults to : 7
+* MONTHLY number of monthly backups to keep, defaults to : 12
+* YEARLY number of yearly backups to keep, defaults to : 3
+
+Daily, Monthly and Yearly environment variables are used to specify the 
+frequency of backups to keep. For example, 7 Daily backups means the service
+will keep 7 latest daily backups. 12 Monthly backups means the service will keep
+12 latest monthly backups, with each backup is created at the first date each 
+month. Similarly, yearly backup is created at 1st January each year.
 
 ## Remote backup connection variables
 
