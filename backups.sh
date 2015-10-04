@@ -26,4 +26,6 @@ do
   echo "Backing up $DB"  >> /var/log/cron.log
   FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
   pg_dump -i -Fc -f ${FILENAME} -x -O ${DB}
+  echo "push backup to remote server" >> /var/log/cron.log
+  /usr/bin/python /sftp_remote.py ${FILENAME} >> /var/log/cron.log
 done
