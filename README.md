@@ -21,11 +21,13 @@ get our docker trusted build like this:
 
 ```
 docker pull kartoza/pg-backup:latest
+docker pull kartoza/pg-backup:9.6
+docker pull kartoza/pg-backup:9.5
 docker pull kartoza/pg-backup:9.4
 docker pull kartoza/pg-backup:9.3
 ```
 
-We highly suggest that you use a tagged image (9.4 or 9.3 currently available) as 
+We highly suggest that you use a tagged image (9.6 currently available) as 
 latest may change and may not successfully back up your database. Use the same or 
 greater version of postgis as the database you are backing up.
 
