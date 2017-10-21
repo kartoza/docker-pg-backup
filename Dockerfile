@@ -1,4 +1,4 @@
-FROM kartoza/postgis:9.6-2.4
+FROM kartoza/postgis:10.0-2.4
 MAINTAINER tim@kartoza.com
  
 RUN apt-get install -y postgresql-client
