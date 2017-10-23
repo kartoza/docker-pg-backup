@@ -67,17 +67,18 @@ stored.
 You can also use the following environment variables to pass a 
 user name and password etc for the database connection.
 
+**Note:** These variable names were changed when updating to support our PG version 10 image so that the names used here are consistent with those used in the postgis v10 image.
 
-* PGUSER if not set, defaults to : docker
-* PGPASSWORD if not set, defaults to : docker
-* PGPORT if not set, defaults to : 5432
-* PGHOST if not set, defaults to : db
-* PGDATABASE if not set, defaults to : gis
+* POSTGRES_USER if not set, defaults to : docker
+* POSTGRES_PASS if not set, defaults to : docker
+* POSTGRES_PORT if not set, defaults to : 5432
+* POSTGRES_HOST if not set, defaults to : db
+* POSTGRES_DBNAME if not set, defaults to : gis
 
 Example usage:
 
 ```
-docker run -e PGUSER=bob -e PGPASSWORD=secret -link db -i -d kartoza/pg-backup
+docker run -e POSTGRES_USER=bob -e POSTGRES_PASS=secret -link db -i -d kartoza/pg-backup
 ```
 
 One other environment variable you may like to set is a prefix for the 
@@ -116,11 +117,11 @@ dbbackups:
     - DUMPPREFIX=PG_YOURSITE
     # These are all defaults anyway, but setting explicitly in
     # case we ever want to ever use different credentials
-    - PGUSER=docker
-    - PGPASSWORD=docker
-    - PGPORT=5432
-    - PGHOST=db
-    - PGDATABASE=gis  
+    - POSTGRES_USER=docker
+    - POSTGRES_PASS=docker
+    - POSTGRES_PORT=5432
+    - POSTGRES_HOST=db
+    - POSTGRES_DBNAME=gis  
 ```
 
 Then run using:

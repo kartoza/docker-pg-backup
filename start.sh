@@ -13,20 +13,20 @@ if [ -z "${PGUSER}" ]; then
   PGUSER=docker
 fi
 
-if [ -z "${PGPASSWORD}" ]; then
-  PGPASSWORD=docker
+if [ -z "${POSTGRES_PASS}" ]; then
+  POSTGRES_PASS=docker
 fi
 
-if [ -z "${PGPORT}" ]; then
-  PGPORT=5432
+if [ -z "${POSTGRES_PORT}" ]; then
+  POSTGRES_PORT=5432
 fi
 
-if [ -z "${PGHOST}" ]; then
-  PGHOST=db
+if [ -z "${POSTGRES_HOST}" ]; then
+  POSTGRES_HOST=db
 fi
 
-if [ -z "${PGDATABASE}" ]; then
-  PGDATABASE=gis
+if [ -z "${POSTGRES_DBNAME}" ]; then
+  POSTGRES_DBNAME=gis
 fi
 
 if [ -z "${DUMPPREFIX}" ]; then
@@ -40,10 +40,10 @@ fi
 
 echo "
 export PGUSER=$PGUSER
-export PGPASSWORD=$PGPASSWORD
-export PGPORT=$PGPORT
-export PGHOST=$PGHOST
-export PGDATABASE=$PGDATABASE
+export PGPASSWORD=$POSTGRES_PASS
+export PGPORT=$POSTGRES_PORT
+export PGHOST=$POSTGRES_HOST
+export PGDATABASE=$POSTGRES_DBNAME
 export DUMPPREFIX=$DUMPPREFIX
  " > /pgenv.sh
 

@@ -1,12 +1,12 @@
-# This is for testing on travies only
+# This is for testing on travis only
 # For production we recommend to rather use
 # image: kartoza/pg-backup
 # in the dbbackup service
 db:
   image: kartoza/postgis
   environment:
-    - USERNAME=docker
-    - PASS=docker
+    - POSTGRES_USER=docker
+    - POSTGRES_PASS=docker
 
 dbbackup:
   build: .
@@ -14,9 +14,10 @@ dbbackup:
     - ./backup:/backup
   environment:
     - DUMPPREFIX=watchkeeper
-    - PGHOST=db
-    - PGUSER=docker
-    - PGPASSWORD=docker
-    - PGPORT=5432
+    - POSTGRES_HOST=db
+    - POSTGRES_DBNAME=gis
+    - POSTGRES_USER=docker
+    - POSTGRES_PASS=docker
+    - POSTGRES_PORT=5432
   links:
     - db:db
