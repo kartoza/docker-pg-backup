@@ -2,14 +2,14 @@ FROM golang:1.9.2-stretch
 MAINTAINER federico.facca@martel-innovate.com
 
 RUN apt-get update
-RUN apt-get install -y software-properties-common dirmngr
+#RUN apt-get install -y software-properties-common dirmngr
 RUN go get github.com/odeke-em/drive/drive-gen && drive-gen
+RUN go clean
 RUN apt-get install -y cron postgresql-client-9.6
 RUN apt-get clean
 
 USER root
 WORKDIR /
-ADD backups_cron /etc/cron.d/backups_cron
 RUN touch /var/log/cron.log
 ADD db-backups.sh db-backups.sh
 ADD file-backups.sh file-backups.sh
@@ -19,7 +19,10 @@ RUN chmod +x start.sh
 RUN chmod +x file-backups.sh
 RUN chmod +x db-backups.sh
 RUN chmod +x clean.sh
-
+RUN (crontab -l ; echo "* * * * * echo "cron is up" >> /var/log/cron.log 2>&1") | crontab
+RUN (crontab -l ; echo "0 * * * * /db-backups.sh >> /var/log/cron.log 2>&1") | crontab
+RUN (crontab -l ; echo "0 23 * * * /file-backups.sh >> /var/log/cron.log 2>&1") | crontab
+RUN (crontab -l ; echo "0 23 10 * * /clean.sh >> /var/log/cron.log 2>&1") | crontab
 
 ENV ODOO_FILES 0
 ENV DRIVE_DESTINATION ""
