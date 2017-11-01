@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t kartoza/pg-backups .
+docker build -t martel/odoo-backup .

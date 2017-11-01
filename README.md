@@ -1,48 +1,33 @@
-# Docker PG Backup
+# Odoo Backup
 
 
-A simple docker container that runs PostGIS backups. It is intended to be used
-primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
-docker image. By default it will create a backup once per night (at 23h00)in a 
-nicely ordered directory by year / month.
-
-* Visit our page on the docker hub at: https://registry.hub.docker.com/u/kartoza/pg-backup/
-* Visit our page on github at: https://github.com/kartoza/docker-pg-backup
-
+A simple docker container that run Odoo backups covering both Odoo files and PostgreSQL db based on [docker-pg-backup](https://github.com/kartoza/docker-pg-backup).
+It then copy the backup files on GoogleDrive using drive cli.
 
 ## Getting the image
 
 There are various ways to get the image onto your system:
-
 
 The preferred way (but using most bandwidth for the initial image) is to
 get our docker trusted build like this:
 
 
 ```
-docker pull kartoza/pg-backup:latest
-docker pull kartoza/pg-backup:9.6
-docker pull kartoza/pg-backup:9.5
-docker pull kartoza/pg-backup:9.4
-docker pull kartoza/pg-backup:9.3
+docker pull martel/odoo-backup:latest
 ```
-
-We highly suggest that you use a tagged image (9.6 currently available) as 
-latest may change and may not successfully back up your database. Use the same or 
-greater version of postgis as the database you are backing up.
 
 
 To build the image yourself without apt-cacher (also consumes more bandwidth
 since deb packages need to be refetched each time you build) do:
 
 ```
-docker build -t kartoza/pg-backups .
+docker build -t martel/odoo-backup .
 ```
 
 If you do not wish to do a local checkout first then build directly from github.
 
 ```
-git clone git://github.com/kartoza/docker-postgis
+git clone git://github.com/martel-innovate/odoo-backup
 ```
 
 ## Run
@@ -54,8 +39,9 @@ To create a running container do:
 docker run --name="backups"\
            --hostname="pg-backups" \
            --link=watchkeeper_db_1:db \
-           -v backups:/backups \
-           -i -d kartoza/pg-backup:9.4
+           -v ${PWD}/backup:/backup \
+           -v ${PWD}/credentials.json:/var/credentials.json \
+           -i -d martel/pg-backup
 ```
            
 In this example I used a volume into which the actual backups will be
@@ -67,18 +53,20 @@ stored.
 You can also use the following environment variables to pass a 
 user name and password etc for the database connection.
 
-**Note:** These variable names were changed when updating to support our PG version 10 image so that the names used here are consistent with those used in the postgis v10 image.
 
-* POSTGRES_USER if not set, defaults to : docker
-* POSTGRES_PASS if not set, defaults to : docker
-* POSTGRES_PORT if not set, defaults to : 5432
-* POSTGRES_HOST if not set, defaults to : db
-* POSTGRES_DBNAME if not set, defaults to : gis
+* PGUSER if not set, defaults to : docker
+* PGPASSWORD if not set, defaults to : docker
+* PGPORT if not set, defaults to : 5432
+* PGHOST if not set, defaults to : db
+* PGDATABASE if not set, defaults to : db
+* ODOO_FILES if not set, defaults to : 1 (it will backup also files in /var/lib/odoo)
+* DRIVE_DESTINATION if not set, defaults to : "" (no path, so it will not run a Drive backup)
 
 Example usage:
 
 ```
-docker run -e POSTGRES_USER=bob -e POSTGRES_PASS=secret -link db -i -d kartoza/pg-backup
+docker run -e PGUSER=bob -e PGPASSWORD=secret -e ODOO_FILES=1
+    -e DRIVE_DESTINATION=path -link db -i -d martel/pg-backup
 ```
 
 One other environment variable you may like to set is a prefix for the 
@@ -89,39 +77,36 @@ database dumps.
 Example usage:
 
 ```
-docker run -e DUMPPREFIX=foo -link db -i -d kartoza/pg-backup
+docker run -e DUMPPREFIX=foo -link db -i -d martel/pg-backup
 ```
 
-Here is a more typical example using docker-composer (formerly known as fig):
+Here is a more typical example using docker-composer:
 
 For ``docker-compose.yml``:
 
 ```
 db:
-  image: kartoza/postgis:9.4-2.1
-  volumes:
-    - ./pg/postgres_data:/var/lib/postgresql
-    - ./pg/setup_data:/home/setup
+  image: postgres:9.4
   environment:
-    - USERNAME=docker
-    - PASS=docker
+    - POSTGRES_USER=docker
+    - POSTGRES_PASS=docker
 
 dbbackups:
-  image: kartoza/pg-backup:9.4
+  image: martel/pg-backup:latest
   hostname: pg-backups
-  volumes:
-    - ./backups:/backups
   links:
     - db:db
+  volumes:
+    - ${PWD}/backup:/var/backup
+    - ${PWD}/credentials.json:/var/credentials.json #TODO document how to create the file
   environment:
-    - DUMPPREFIX=PG_YOURSITE
-    # These are all defaults anyway, but setting explicitly in
-    # case we ever want to ever use different credentials
+    - ODOO_FILES=0
+    - DRIVE_DESTINATION=path
+    - POSTGRES_HOST=db
+    - POSTGRES_DBNAME=db
     - POSTGRES_USER=docker
     - POSTGRES_PASS=docker
     - POSTGRES_PORT=5432
-    - POSTGRES_HOST=db
-    - POSTGRES_DBNAME=gis  
 ```
 
 Then run using:
@@ -129,9 +114,3 @@ Then run using:
 ```
 docker-compose up -d dbbackup
 ```
-
-
-## Credits
-
-Tim Sutton (tim@kartoza.com)
-April 2015

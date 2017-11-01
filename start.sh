@@ -13,25 +13,34 @@ if [ -z "${PGUSER}" ]; then
   PGUSER=docker
 fi
 
-if [ -z "${POSTGRES_PASS}" ]; then
-  POSTGRES_PASS=docker
+if [ -z "${PGPASSWORD}" ]; then
+  PGPASSWORD=docker
 fi
 
-if [ -z "${POSTGRES_PORT}" ]; then
-  POSTGRES_PORT=5432
+if [ -z "${PGPORT}" ]; then
+  PGPORT=5432
 fi
 
-if [ -z "${POSTGRES_HOST}" ]; then
-  POSTGRES_HOST=db
+if [ -z "${PGHOST}" ]; then
+  PGHOST=db
 fi
 
-if [ -z "${POSTGRES_DBNAME}" ]; then
-  POSTGRES_DBNAME=gis
+if [ -z "${PGDATABASE}" ]; then
+  PGDATABASE=gis
 fi
 
 if [ -z "${DUMPPREFIX}" ]; then
   DUMPPREFIX=PG
 fi
+
+if [ -z "${ODOO_FILES}" ]; then
+  ODOO_FILES=0
+fi
+
+if [ -z "${DRIVE_DESTINATION}" ]; then
+  DRIVE_DESTINATION=""
+fi
+
 
 # Now write these all to case file that can be sourced
 # by then cron job - we need to do this because
@@ -40,11 +49,13 @@ fi
 
 echo "
 export PGUSER=$PGUSER
-export PGPASSWORD=$POSTGRES_PASS
-export PGPORT=$POSTGRES_PORT
-export PGHOST=$POSTGRES_HOST
-export PGDATABASE=$POSTGRES_DBNAME
+export PGPASSWORD=$PGPASSWORD
+export PGPORT=$PGPORT
+export PGHOST=$PGHOST
+export PGDATABASE=$PGDATABASE
 export DUMPPREFIX=$DUMPPREFIX
+export ODOO_FILES=$ODOO_FILES
+export DRIVE_DESTINATION=$DRIVE_DESTINATION
  " > /pgenv.sh
 
 echo "Start script running with these environment options"

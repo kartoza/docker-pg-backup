@@ -1,9 +1,9 @@
 # This is for testing on travis only
 # For production we recommend to rather use
-# image: kartoza/pg-backup
+# image: martel/odoo-backup
 # in the dbbackup service
 db:
-  image: kartoza/postgis
+  image: postgres:9.4
   environment:
     - POSTGRES_USER=docker
     - POSTGRES_PASS=docker
@@ -11,11 +11,14 @@ db:
 dbbackup:
   build: .
   volumes:
-    - ./backup:/backup
+    - ${PWD}/backup:/var/backup
+    - ${PWD}/credentials.json:/var/credentials.json
   environment:
     - DUMPPREFIX=watchkeeper
+    - ODOO_FILES=0
+    - DRIVE_DESTINATION=Martel/IT/
     - POSTGRES_HOST=db
-    - POSTGRES_DBNAME=gis
+    - POSTGRES_DBNAME=db
     - POSTGRES_USER=docker
     - POSTGRES_PASS=docker
     - POSTGRES_PORT=5432
