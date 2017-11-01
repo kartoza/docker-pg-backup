@@ -16,7 +16,7 @@ dbbackup:
   environment:
     - DUMPPREFIX=watchkeeper
     - ODOO_FILES=0
-    - DRIVE_DESTINATION=Martel/IT/
+    - DRIVE_DESTINATION=path
     - POSTGRES_HOST=db
     - POSTGRES_DBNAME=db
     - POSTGRES_USER=docker
