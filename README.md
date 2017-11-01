@@ -102,11 +102,13 @@ dbbackups:
   environment:
     - ODOO_FILES=0
     - DRIVE_DESTINATION=path
-    - POSTGRES_HOST=db
-    - POSTGRES_DBNAME=db
-    - POSTGRES_USER=docker
-    - POSTGRES_PASS=docker
-    - POSTGRES_PORT=5432
+    - ODOO_FILES=0
+    - DRIVE_DESTINATION=path
+    - PGHOST=db
+    - PGDB=db
+    - PGUSER=docker
+    - PGPASSWORD=docker
+    - PGPORT=5432
 ```
 
 Then run using:

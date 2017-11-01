@@ -1,3 +1,6 @@
+# Every minute refresh the log
+* * * * * root echo "cron is up" >> /var/log/cron.log 2>&1
+
 # Run database backups every hour
 0 * * * * root /db-backups.sh >> /var/log/cron.log 2>&1
 
