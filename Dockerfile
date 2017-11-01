@@ -1,12 +1,15 @@
 FROM golang:1.9.2-stretch
 MAINTAINER federico.facca@martel-innovate.com
 
-RUN apt-get update
-#RUN apt-get install -y software-properties-common dirmngr
 RUN go get github.com/odeke-em/drive/drive-gen && drive-gen
 RUN go clean
+RUN apt-get update
 RUN apt-get install -y cron postgresql-client-9.6
-RUN apt-get clean
+RUN apt-get clean autoclean
+RUN apt-get autoremove -y
+RUN rm -rf /var/lib/{apt,dpkg,cache,log}/
+RUN rm -rf /usr/local/go
+RUN rm -rf /usr/local/go1.*.linux-amd64.tar.gz
 
 USER root
 WORKDIR /
