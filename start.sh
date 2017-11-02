@@ -63,4 +63,4 @@ set | grep PG
 
 # Now launch cron in then foreground.
 
-cron -f
+cron -f -L 8

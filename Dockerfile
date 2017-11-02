@@ -22,10 +22,11 @@ RUN chmod +x start.sh
 RUN chmod +x file-backups.sh
 RUN chmod +x db-backups.sh
 RUN chmod +x clean.sh
-RUN (crontab -l ; echo "* * * * * echo "cron is up" >> /var/log/cron.log 2>&1") | crontab
+RUN (crontab -l ; echo "* * * * * echo 'cron is up' >> /var/log/cron.log 2>&1") | crontab
 RUN (crontab -l ; echo "0 * * * * /db-backups.sh >> /var/log/cron.log 2>&1") | crontab
 RUN (crontab -l ; echo "0 23 * * * /file-backups.sh >> /var/log/cron.log 2>&1") | crontab
 RUN (crontab -l ; echo "0 23 10 * * /clean.sh >> /var/log/cron.log 2>&1") | crontab
+RUN sed -i '/session    required     pam_loginuid.so/c\#session    required     pam_loginuid.so' /etc/pam.d/cron
 
 ENV ODOO_FILES 0
 ENV DRIVE_DESTINATION ""
