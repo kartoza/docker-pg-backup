@@ -12,7 +12,7 @@ dbbackup:
   build: .
   volumes:
     - ${PWD}/backup:/var/backup
-    - ${PWD}/credentials.json:/var/credentials.json
+    - ${PWD}/credentials.json:/var/credentials/credentials.json
   environment:
     - DUMPPREFIX=watchkeeper
     - ODOO_FILES=0

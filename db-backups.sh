@@ -38,7 +38,7 @@ do
     else 
       mkdir .gd
     fi
-    cp -f /var/credentials.json .gd/credentials.json
+    cp -f /var/credentials/credentials.json .gd/credentials.json
     ACTION="Copy $FILENAME to GDrive"
     /go/bin/drive push -destination $DRIVE_DESTINATION -ignore-checksum=false -quiet $FILENAME.gz
     if [ $? -eq 0 ]; then
@@ -46,7 +46,7 @@ do
     else
       echo "FAIL: " $ACTION " - " $(date)
     fi
-    cp -f .gd/credentials.json /var/credentials.json
+    cp -f .gd/credentials.json /var/credentials/credentials.json
   else 
     echo "DRIVE UPLOAD DISABLED"
   fi

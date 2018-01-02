@@ -30,7 +30,7 @@ if [ $ODOO_FILES -eq 1 ]; then
     else 
       mkdir .gd
     fi
-    cp -f /var/credentials.json .gd/credentials.json
+    cp -f /var/credentials/credentials.json .gd/credentials.json
     ACTION="Copy $FILENAME to GDrive"
     /go/bin/drive push -destination $DRIVE_DESTINATION -ignore-checksum=false -quiet $FILENAME
     if [ $? -eq 0 ]; then
@@ -38,7 +38,7 @@ if [ $ODOO_FILES -eq 1 ]; then
     else
       echo "FAIL: " $ACTION " - " $(date)
     fi
-    cp -f .gd/credentials.json /var/credentials.json
+    cp -f .gd/credentials.json /var/credentials/credentials.json
   else
     echo "DRIVE UPLOAD DISABLED"
   fi
