@@ -127,7 +127,7 @@ dbbackups:
 Then run using:
 
 ```
-docker-compose up -d dbbackup
+docker-compose up -d dbbackups
 ```
 
 
