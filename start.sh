@@ -61,6 +61,9 @@ export DRIVE_DESTINATION=$DRIVE_DESTINATION
 echo "Start script running with these environment options"
 set | grep PG
 
+#configure rclone
+rclone config $RCLONE_OPTS
+
 # Now launch cron in then foreground.
 
 cron -f -L 8

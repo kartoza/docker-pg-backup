@@ -12,11 +12,11 @@ dbbackup:
   build: .
   volumes:
     - ${PWD}/backup:/var/backup
-    - ${PWD}/credentials.json:/var/credentials/credentials.json
+    - ${PWD}/config:/config
   environment:
     - DUMPPREFIX=watchkeeper
     - ODOO_FILES=0
-    - DRIVE_DESTINATION=path
+    - DRIVE_DESTINATION=remote:backup/odoo
     - PGHOST=db
     - PGDB=db
     - PGUSER=docker

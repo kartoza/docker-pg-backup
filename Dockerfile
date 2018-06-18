@@ -1,7 +1,7 @@
 FROM golang:1.9.2-stretch
 MAINTAINER federico.facca@martel-innovate.com
 
-RUN go get github.com/odeke-em/drive/drive-gen && drive-gen
+RUN go get -u -v github.com/ncw/rclone
 RUN go clean
 RUN apt-get update
 RUN apt-get install -y cron postgresql-client-9.6
@@ -30,5 +30,6 @@ RUN sed -i '/session    required     pam_loginuid.so/c\#session    required     
 
 ENV ODOO_FILES 0
 ENV DRIVE_DESTINATION ""
+ENV RCLONE_OPTS="--config /config/rclone.conf"
 
 ENTRYPOINT ["bash", "start.sh"]

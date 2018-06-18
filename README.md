@@ -98,7 +98,7 @@ dbbackups:
     - db:db
   volumes:
     - ${PWD}/backup:/var/backup
-    - ${PWD}/credentials.json:/var/credentials.json #TODO document how to create the file
+    - ${PWD}/credentials.json:/var/credentials/credentials.json #TODO document how to create the file
   environment:
     - ODOO_FILES=0
     - DRIVE_DESTINATION=path

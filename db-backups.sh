@@ -33,20 +33,13 @@ do
      echo "FAIL: " $ACTION " - " $(date)
   fi
   if [ -n "${DRIVE_DESTINATION}" ]; then
-    if [ -d ".gd" ]; then
-      echo ".gd directory exist";
-    else 
-      mkdir .gd
-    fi
-    cp -f /var/credentials/credentials.json .gd/credentials.json
-    ACTION="Copy $FILENAME to GDrive"
-    /go/bin/drive push -destination $DRIVE_DESTINATION -ignore-checksum=false -quiet $FILENAME.gz
+    ACTION="Copy $FILENAME to destination"
+    /go/bin/rclone copy $FILENAME.gz $DRIVE_DESTINATION $RCLONE_OPTS
     if [ $? -eq 0 ]; then
       echo "OK: " $ACTION " - " $(date)
     else
       echo "FAIL: " $ACTION " - " $(date)
     fi
-    cp -f .gd/credentials.json /var/credentials/credentials.json
   else 
     echo "DRIVE UPLOAD DISABLED"
   fi
