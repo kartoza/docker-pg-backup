@@ -1,18 +1,26 @@
-install:
-  - sudo apt-get install -y linux-image-virtual kernel linux-image-extra-virtual
-  - curl -sSL https://get.docker.com/ | sudo sh
-  - sudo pip install docker-compose
+sudo: required
 
+services:
+  - docker
 
 script:
   - ls -lah
-  - docker-compose up -d dbbackup
+  - docker-compose up -d --build dbbackup
   - docker-compose ps
-  - docker exec dockerpgbackups_dbbackup_1 ls
-  - docker exec dockerpgbackups_dbbackup_1 date --set="2012-6-29 10:59.59 PM"
-  - wait 4
-  - ls -lah backups/*
-  - if [[ ! -f "backups/2012/June/foo.dmp" ]]; then exit 1; fi
+  - docker-compose exec dbbackup /bin/bash -c "until psql -l; do echo 'db unavailable. sleeping'; sleep 1; done"
+  - docker-compose exec dbbackup ls
+  # Test backup
+  - docker-compose exec dbbackup /backups.sh
+  - export ARCHIVE_DUMP="backups/$(date +%Y)/$(date +%B)/watchkeeper_gis.$(date +%d-%B-%Y).dmp"
+  - ls -lah ${ARCHIVE_DUMP}
+  # Test restore
+  - docker-compose exec dbbackup cp /${ARCHIVE_DUMP} /backups/target_archive.dmp
+  - docker-compose exec dbbackup psql -l gis
+  - docker-compose exec dbbackup dropdb gis
+  - docker-compose exec dbbackup psql -l
+  - docker-compose exec dbbackup /restore.sh
+  - docker-compose exec dbbackup psql -l gis
+
 notifications:
   irc:
     channels:
