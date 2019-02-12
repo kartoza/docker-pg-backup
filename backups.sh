@@ -24,6 +24,10 @@ DBLIST=`psql -l | awk '{print $1}' | grep -v "+" | grep -v "Name" | grep -v "Lis
 for DB in ${DBLIST}
 do
   echo "Backing up $DB"  >> /var/log/cron.log
-  FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
+  if [ -z "${ARCHIVE_FILENAME:-}" ]; then
+  	FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
+  else
+  	FILENAME="${ARCHIVE_FILENAME}.${DB}.dmp"
+  fi
   pg_dump -Fc -f ${FILENAME} -x -O ${DB}
 done

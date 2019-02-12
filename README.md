@@ -73,6 +73,7 @@ user name and password etc for the database connection.
 * PGPORT if not set, defaults to : 5432
 * PGHOST if not set, defaults to : db
 * PGDATABASE if not set, defaults to : gis
+* ARCHIVE_FILENAME you can use your specified filename format here, default to empty, which means it will use default filename format.
 
 Example usage:
 

@@ -45,6 +45,7 @@ export PGPORT=$PGPORT
 export PGHOST=$PGHOST
 export PGDATABASE=$PGDATABASE
 export DUMPPREFIX=$DUMPPREFIX
+export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
  " > /pgenv.sh
 
 echo "Start script running with these environment options"
