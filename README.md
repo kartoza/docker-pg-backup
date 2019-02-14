@@ -61,7 +61,7 @@ docker run --name="backups"\
 In this example I used a volume into which the actual backups will be
 stored.
 
-# Specifying environment
+## Specifying environment
 
 
 You can also use the following environment variables to pass a 
@@ -74,6 +74,7 @@ user name and password etc for the database connection.
 * POSTGRES_PORT if not set, defaults to : 5432
 * POSTGRES_HOST if not set, defaults to : db
 * POSTGRES_DBNAME if not set, defaults to : gis
+* ARCHIVE_FILENAME you can use your specified filename format here, default to empty, which means it will use default filename format.
 
 Example usage:
 
@@ -106,7 +107,7 @@ db:
     - USERNAME=docker
     - PASS=docker
 
-dbbackups:
+dbbackup:
   image: kartoza/pg-backup:9.4
   hostname: pg-backups
   volumes:
@@ -127,9 +128,51 @@ dbbackups:
 Then run using:
 
 ```
-docker-compose up -d dbbackups
+docker-compose up -d dbbackup
 ```
 
+## Filename format
+
+The default backup archive generated will be stored in this directory (inside the container):
+
+```
+/backups/$(date +%Y)/$(date +%B)/${DUMPPREFIX}_${DB}.$(date +%d-%B-%Y).dmp
+```
+
+As a concrete example, with `DUMPPREFIX=PG` and if your postgis has DB name `gis`.
+The backup archive would be something like:
+
+```
+/backups/2019/February/PG_gis.13-February-2019.dmp
+```
+
+If you specify `ARCHIVE_FILENAME` instead (default value is empty). The 
+filename will be fixed according to this prefix.
+Let's assume `ARCHIVE_FILENAME=/backups/latest`
+The backup archive would be something like
+
+```
+/backups/latest.gis.dmp
+```
+
+## Restoring
+
+A simple restore script is provided.
+You need to specify some environment variables first:
+
+ * TARGET_DB: the db name to restore
+ * WITH_POSTGIS: Kartoza specific, to generate POSTGIS extension along with the restore process
+ * TARGET_ARCHIVE: the full path of the archive to restore
+ 
+ The restore script will delete the `TARGET_DB`, so make sure you know what you are doing.
+ Then it will create a new one and restore the content from `TARGET_ARCHIVE`
+ 
+ If you specify these environment variable using docker-compose.yml file, 
+ then you can execute a restore process like this:
+ 
+ ```
+ docker-compose exec dbbackup /restore.sh
+ ```
 
 ## Credits
 

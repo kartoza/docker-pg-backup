@@ -45,6 +45,7 @@ export PGPORT=$POSTGRES_PORT
 export PGHOST=$POSTGRES_HOST
 export PGDATABASE=$POSTGRES_DBNAME
 export DUMPPREFIX=$DUMPPREFIX
+export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
  " > /pgenv.sh
 
 echo "Start script running with these environment options"
