@@ -24,8 +24,10 @@ if [ -z "${WITH_POSTGIS:-}" ]; then
 	createdb -O ${PGUSER} ${TARGET_DB}
 else
 	echo "Recreate target DB with POSTGIS"
-	createdb -O ${PGUSER} -T template_postgis ${TARGET_DB}
+	createdb -O ${PGUSER}  ${TARGET_DB}
+	psql -c 'CREATE EXTENSION IF NOT EXISTS postgis;' ${TARGET_DB}
 fi
 
 echo "Restoring dump file"
+psql -f /backups/globals.sql ${TARGET_DB}
 pg_restore ${TARGET_ARCHIVE} | psql -d ${TARGET_DB}
