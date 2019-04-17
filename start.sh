@@ -38,6 +38,12 @@ fi
 # env vars passed to docker will not be available
 # in then contenxt of then running cron script.
 
+PG_ENV="/pgenv.sh"
+if [[ -f "${PG_ENV}" ]]; then
+	rm ${PG_ENV}
+fi
+
+
 echo "
 export PGUSER=$PGUSER
 export PGPASSWORD=$POSTGRES_PASS
