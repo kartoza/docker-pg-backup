@@ -5,13 +5,14 @@
 db:
   image: kartoza/postgis
   environment:
+    - ALLOW_IP_RANGE=0.0.0.0/0
     - POSTGRES_USER=docker
     - POSTGRES_PASS=docker
 
 dbbackup:
   build: .
   volumes:
-    - ./backup:/backup
+    - ./backups:/backups
   environment:
     - DUMPPREFIX=watchkeeper
     - POSTGRES_HOST=db
@@ -19,5 +20,9 @@ dbbackup:
     - POSTGRES_USER=docker
     - POSTGRES_PASS=docker
     - POSTGRES_PORT=5432
+    # For restore script
+    - TARGET_DB=gis
+    - WITH_POSTGIS=1
+    - TARGET_ARCHIVE=/backups/target_archive.dmp
   links:
     - db:db
