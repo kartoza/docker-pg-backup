@@ -38,6 +38,12 @@ fi
 # env vars passed to docker will not be available
 # in then contenxt of then running cron script.
 
+PG_ENV="/pgenv.sh"
+if [[ -f "${PG_ENV}" ]]; then
+	rm ${PG_ENV}
+fi
+
+
 echo "
 export PGUSER=$PGUSER
 export PGPASSWORD=$POSTGRES_PASS
@@ -45,6 +51,7 @@ export PGPORT=$POSTGRES_PORT
 export PGHOST=$POSTGRES_HOST
 export PGDATABASE=$POSTGRES_DBNAME
 export DUMPPREFIX=$DUMPPREFIX
+export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
  " > /pgenv.sh
 
 echo "Start script running with these environment options"
