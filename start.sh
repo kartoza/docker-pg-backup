@@ -9,42 +9,47 @@
 # Check if each var is declared and if not,
 # set a sensible default
 
-if [ -z "${POSTGRES_USER}" ]; then
-  POSTGRES_USER=docker
+if [ -z "${PGUSER}" ]; then
+  PGUSER=docker
 fi
 
-if [ -z "${POSTGRES_PASS}" ]; then
-  POSTGRES_PASS=docker
+if [ -z "${PGPASSWORD}" ]; then
+  PGPASSWORD=docker
 fi
 
-if [ -z "${POSTGRES_PORT}" ]; then
-  POSTGRES_PORT=5432
+if [ -z "${PGPORT}" ]; then
+  PGPORT=5432
 fi
 
-if [ -z "${POSTGRES_HOST}" ]; then
-  POSTGRES_HOST=db
+if [ -z "${PGHOST}" ]; then
+  PGHOST=db
 fi
 
-if [ -z "${POSTGRES_DBNAME}" ]; then
-  POSTGRES_DBNAME=gis
+if [ -z "${PGDATABASE}" ]; then
+  PGDATABASE=gis
 fi
 
 if [ -z "${DUMPPREFIX}" ]; then
   DUMPPREFIX=PG
+fi
+if [ -z "${ARCHIVE_FILENAME}" ]; then
+  ARCHIVE_FILENAME=
 fi
 
 # Now write these all to case file that can be sourced
 # by then cron job - we need to do this because
 # env vars passed to docker will not be available
 # in then contenxt of then running cron script.
-
+if [ -f /pgenv.sh ]; then
+    rm /pgenv.sh
+fi
 echo "
-export PGUSER=$POSTGRES_USER
-export PGPASSWORD=\"$POSTGRES_PASS\"
-export PGPORT=$POSTGRES_PORT
-export PGHOST=$POSTGRES_HOST
-export PGDATABASE=$POSTGRES_DBNAME
-export DUMPPREFIX=$DUMPPREFIX
+export PGUSER=${PGUSER}
+export PGPASSWORD=\"${PGPASSWORD}\"
+export PGPORT=${PGPORT}
+export PGHOST=${PGHOST}
+export PGDATABASE=${PGDATABASE}
+export DUMPPREFIX=${DUMPPREFIX}
 export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
  " > /pgenv.sh
 
