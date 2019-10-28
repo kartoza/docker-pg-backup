@@ -40,9 +40,12 @@ fi
 # by then cron job - we need to do this because
 # env vars passed to docker will not be available
 # in then contenxt of then running cron script.
-if [ -f /pgenv.sh ]; then
-    rm /pgenv.sh
+
+PG_ENV="/pgenv.sh"
+if [[ -f "${PG_ENV}" ]]; then
+	rm ${PG_ENV}
 fi
+
 echo "
 export PGUSER=${PGUSER}
 export PGPASSWORD=\"${PGPASSWORD}\"
