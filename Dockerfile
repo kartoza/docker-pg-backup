@@ -10,3 +10,4 @@ ADD start.sh /start.sh
 
 ENTRYPOINT []
 CMD ["/start.sh"]
+

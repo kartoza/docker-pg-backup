@@ -8,9 +8,8 @@
 
 # Check if each var is declared and if not,
 # set a sensible default
-
-if [ -z "${PGUSER}" ]; then
-  PGUSER=docker
+if [ -z "${POSTGRES_USER}" ]; then
+  POSTGRES_USER=docker
 fi
 
 if [ -z "${POSTGRES_PASS}" ]; then
@@ -33,6 +32,10 @@ if [ -z "${DUMPPREFIX}" ]; then
   DUMPPREFIX=PG
 fi
 
+if [ -z "${ARCHIVE_FILENAME}" ]; then
+  ARCHIVE_FILENAME=
+fi
+
 # Now write these all to case file that can be sourced
 # by then cron job - we need to do this because
 # env vars passed to docker will not be available
@@ -43,17 +46,15 @@ if [[ -f "${PG_ENV}" ]]; then
 	rm ${PG_ENV}
 fi
 
-
 echo "
-export PGUSER=$PGUSER
-export PGPASSWORD=$POSTGRES_PASS
+export PGUSER=$POSTGRES_USER
+export PGPASSWORD=\"$POSTGRES_PASS\"
 export PGPORT=$POSTGRES_PORT
 export PGHOST=$POSTGRES_HOST
 export PGDATABASE=$POSTGRES_DBNAME
 export DUMPPREFIX=$DUMPPREFIX
 export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
  " > /pgenv.sh
-
 echo "Start script running with these environment options"
 set | grep PG
 
