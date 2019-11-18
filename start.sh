@@ -59,5 +59,6 @@ echo "Start script running with these environment options"
 set | grep PG
 
 # Now launch cron in then foreground.
+crontab /backups-cron
 
 cron -f
