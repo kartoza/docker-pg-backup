@@ -15,6 +15,10 @@ dbbackup:
     - ./backups:/backups
   environment:
     - DUMPPREFIX=watchkeeper
+    # List databases to back up; defaults to all
+    - "DBLIST=gis"
+    # Remove backups older than (in days)
+    - REMOVE_BEFORE=30
     - POSTGRES_HOST=db
     - POSTGRES_DBNAME=gis
     - POSTGRES_USER=docker

@@ -3,7 +3,7 @@
 
 A simple docker container that runs PostGIS backups. It is intended to be used
 primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
-docker image. By default it will create a backup once per night (at 23h00)in a 
+docker image. By default it will create a backup once per night (at 23h00)in a
 nicely ordered directory by year / month.
 
 * Visit our page on the docker hub at: https://registry.hub.docker.com/u/kartoza/pg-backup/
@@ -27,8 +27,8 @@ docker pull kartoza/pg-backup:9.4
 docker pull kartoza/pg-backup:9.3
 ```
 
-We highly suggest that you use a tagged image (9.6 currently available) as 
-latest may change and may not successfully back up your database. Use the same or 
+We highly suggest that you use a tagged image (9.6 currently available) as
+latest may change and may not successfully back up your database. Use the same or
 greater version of postgis as the database you are backing up.
 
 
@@ -57,14 +57,14 @@ docker run --name="backups"\
            -v backups:/backups \
            -i -d kartoza/pg-backup:9.4
 ```
-           
+
 In this example I used a volume into which the actual backups will be
 stored.
 
 ## Specifying environment
 
 
-You can also use the following environment variables to pass a 
+You can also use the following environment variables to pass a
 user name and password etc for the database connection.
 
 **Note:** These variable names were changed when updating to support our PG version 10 image so that the names used here are consistent with those used in the postgis v10 image.
@@ -75,6 +75,8 @@ user name and password etc for the database connection.
 * POSTGRES_HOST if not set, defaults to : db
 * POSTGRES_DBNAME if not set, defaults to : gis
 * ARCHIVE_FILENAME you can use your specified filename format here, default to empty, which means it will use default filename format.
+* DBLIST a space-separated list of databases to backup, e.g. `gis postgres`. Default is all databases.
+* REMOVE_BEFORE remove all old backups older than specified amount of days, e.g. `30` would only keep backup files younger than 30 days. Default: no files are ever removed.
 
 Example usage:
 
@@ -82,7 +84,7 @@ Example usage:
 docker run -e POSTGRES_USER=bob -e POSTGRES_PASS=secret -link db -i -d kartoza/pg-backup
 ```
 
-One other environment variable you may like to set is a prefix for the 
+One other environment variable you may like to set is a prefix for the
 database dumps.
 
 * DUMPPREFIX if not set, defaults to : PG
@@ -146,7 +148,7 @@ The backup archive would be something like:
 /backups/2019/February/PG_gis.13-February-2019.dmp
 ```
 
-If you specify `ARCHIVE_FILENAME` instead (default value is empty). The 
+If you specify `ARCHIVE_FILENAME` instead (default value is empty). The
 filename will be fixed according to this prefix.
 Let's assume `ARCHIVE_FILENAME=/backups/latest`
 The backup archive would be something like
@@ -163,13 +165,13 @@ You need to specify some environment variables first:
  * TARGET_DB: the db name to restore
  * WITH_POSTGIS: Kartoza specific, to generate POSTGIS extension along with the restore process
  * TARGET_ARCHIVE: the full path of the archive to restore
- 
+
  The restore script will delete the `TARGET_DB`, so make sure you know what you are doing.
  Then it will create a new one and restore the content from `TARGET_ARCHIVE`
- 
- If you specify these environment variable using docker-compose.yml file, 
+
+ If you specify these environment variable using docker-compose.yml file,
  then you can execute a restore process like this:
- 
+
  ```
  docker-compose exec dbbackup /restore.sh
  ```
