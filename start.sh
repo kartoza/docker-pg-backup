@@ -36,6 +36,16 @@ if [ -z "${ARCHIVE_FILENAME}" ]; then
   ARCHIVE_FILENAME=
 fi
 
+# How old can files and dirs be before getting trashed? In minutes
+if [ -z "${REMOVE_BEFORE}" ]; then
+  REMOVE_BEFORE=
+fi
+
+# How old can files and dirs be before getting trashed? In minutes
+if [ -z "${DBLIST}" ]; then
+  DBLIST=`psql -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}'`
+fi
+
 # Now write these all to case file that can be sourced
 # by then cron job - we need to do this because
 # env vars passed to docker will not be available
@@ -54,6 +64,8 @@ export PGHOST=$POSTGRES_HOST
 export PGDATABASE=$POSTGRES_DBNAME
 export DUMPPREFIX=$DUMPPREFIX
 export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
+export REMOVE_BEFORE=$REMOVE_BEFORE
+export DBLIST=\"$DBLIST\"
  " > /pgenv.sh
 echo "Start script running with these environment options"
 set | grep PG
