@@ -1,32 +1,38 @@
-# This is for testing on travis only
-# For production we recommend to rather use
-# image: kartoza/pg-backup
-# in the dbbackup service
-db:
-  image: kartoza/postgis
-  environment:
-    - ALLOW_IP_RANGE=0.0.0.0/0
-    - POSTGRES_USER=docker
-    - POSTGRES_PASS=docker
 
-dbbackup:
-  build: .
-  volumes:
-    - ./backups:/backups
-  environment:
-    - DUMPPREFIX=watchkeeper
-    # List databases to back up; defaults to all
-    - "DBLIST=gis"
-    # Remove backups older than (in days)
-    - REMOVE_BEFORE=30
-    - POSTGRES_HOST=db
-    - POSTGRES_DBNAME=gis
-    - POSTGRES_USER=docker
-    - POSTGRES_PASS=docker
-    - POSTGRES_PORT=5432
-    # For restore script
-    - TARGET_DB=gis
-    - WITH_POSTGIS=1
-    - TARGET_ARCHIVE=/backups/target_archive.dmp
-  links:
-    - db:db
+version: '2.1'
+
+volumes:
+   db-backups:
+   geoserver-data:
+   geo-db-data:
+
+services:
+   db:
+      image: kartoza/postgis:12.1
+      restart: on-failure
+      healthcheck:
+        test: "exit 0"
+
+   db-dbbackups:
+     build:
+       context: .
+     volumes:
+       - ./backups:/backups
+     environment:
+       - DUMPPREFIX=PG_gis
+       # List databases to back up; defaults to all
+       # Remove backups older than (in days)
+       - REMOVE_BEFORE=7
+       - POSTGRES_HOST=db
+       - POSTGRES_DBNAME=gis
+       - POSTGRES_USER=docker
+       - POSTGRES_PASS=docker
+       - POSTGRES_PORT=5432
+       # For restore script
+       - TARGET_DB=gis
+       - WITH_POSTGIS=1
+       - TARGET_ARCHIVE=/backups/target_archive.dmp
+     restart: on-failure
+     depends_on:
+       db:
+         condition: service_healthy
