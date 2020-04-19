@@ -61,13 +61,13 @@ export PGUSER=$POSTGRES_USER
 export PGPASSWORD=\"$POSTGRES_PASS\"
 export PGPORT=$POSTGRES_PORT
 export PGHOST=$POSTGRES_HOST
-export PGDATABASE=$POSTGRES_DBNAME
 export DUMPPREFIX=$DUMPPREFIX
 export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
 export REMOVE_BEFORE=$REMOVE_BEFORE
 export DBLIST=\"$DBLIST\"
  " > /pgenv.sh
 echo "Start script running with these environment options"
+cat /pgenv.sh
 set | grep PG
 
 # Now launch cron in then foreground.

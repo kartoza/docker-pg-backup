@@ -24,7 +24,6 @@ services:
        # Remove backups older than (in days)
        - REMOVE_BEFORE=7
        - POSTGRES_HOST=db
-       - POSTGRES_DBNAME=gis
        - POSTGRES_USER=docker
        - POSTGRES_PASS=docker
        - POSTGRES_PORT=5432
