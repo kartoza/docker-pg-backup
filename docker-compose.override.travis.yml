@@ -1,12 +1,13 @@
-# This is for testing on travis only
-# For production we recommend to rather use
-# image: kartoza/pg-backup
-# in the dbbackup service
-dbbackup:
-  environment:
-    # Postgres environment variable
-    # Can be set to execute PG tools directly
-    - PGHOST=db
-    - PGUSER=docker
-    - PGPASSWORD=docker
-    - PGPORT=5432
+
+version: '2.1'
+
+services:
+  dbbackup:
+    image: kartoza/pg-backup:12.0
+    environment:
+      # Postgres environment variable
+      # Can be set to execute PG tools directly
+      - PGHOST=db
+      - PGUSER=docker
+      - PGPASSWORD=docker
+      - PGPORT=5432

@@ -8,7 +8,7 @@ env:
 
 script:
   - ls -lah
-  - docker-compose up -d --build dbbackup
+  - docker-compose up -d
   - docker-compose ps
   - docker-compose exec dbbackup /bin/bash -c "until psql -l; do echo 'db unavailable. sleeping'; sleep 1; done"
   - docker-compose exec dbbackup ls
@@ -23,6 +23,9 @@ script:
   - docker-compose exec dbbackup psql -l
   - docker-compose exec dbbackup /restore.sh
   - docker-compose exec dbbackup psql -l gis
+
+before_script:
+  - ./build-test.sh
 
 notifications:
   irc:

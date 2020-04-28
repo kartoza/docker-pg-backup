@@ -43,7 +43,7 @@ fi
 
 # How old can files and dirs be before getting trashed? In minutes
 if [ -z "${DBLIST}" ]; then
-  DBLIST=`psql -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}'`
+  DBLIST=`PGPASSWORD=${POSTGRES_PASS} psql -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}'`
 fi
 
 # Now write these all to case file that can be sourced
@@ -61,13 +61,13 @@ export PGUSER=$POSTGRES_USER
 export PGPASSWORD=\"$POSTGRES_PASS\"
 export PGPORT=$POSTGRES_PORT
 export PGHOST=$POSTGRES_HOST
-export PGDATABASE=$POSTGRES_DBNAME
 export DUMPPREFIX=$DUMPPREFIX
 export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
 export REMOVE_BEFORE=$REMOVE_BEFORE
 export DBLIST=\"$DBLIST\"
  " > /pgenv.sh
 echo "Start script running with these environment options"
+cat /pgenv.sh
 set | grep PG
 
 # Now launch cron in then foreground.
