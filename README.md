@@ -1,8 +1,8 @@
 # Docker PG Backup
 
 
-A simple docker container that runs PostGIS backups. It is intended to be used
-primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
+A simple docker container that runs PostgrSQK / PostGIS backups (PostGIS is not required it will backup any PG database). 
+It is intended to be used primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
 docker image. By default it will create a backup once per night (at 23h00)in a
 nicely ordered directory by year / month.
 
