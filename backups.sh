@@ -8,8 +8,7 @@ source /pgenv.sh
 MYDATE=`date +%d-%B-%Y`
 MONTH=$(date +%B)
 YEAR=$(date +%Y)
-MYBASEDIR=/backups
-MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
+MYBACKUPDIR=${S3_BUCKET_PREFIX}/${YEAR}/${MONTH}
 mkdir -p ${MYBACKUPDIR}
 cd ${MYBACKUPDIR}
 
@@ -21,25 +20,7 @@ echo "Backup running to $MYBACKUPDIR" >> /var/log/cron.log
 #echo "Databases to backup: ${DBLIST}" >> /var/log/cron.log
 for DB in ${DBLIST}
 do
-  echo "Backing up $DB"  >> /var/log/cron.log
-  if [ -z "${ARCHIVE_FILENAME:-}" ]; then
-  	FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
-  else
-  	FILENAME="${ARCHIVE_FILENAME}.${DB}.dmp"
-  fi
-  if [[  -f ${MYBASEDIR}/globals.sql ]]; then
-    rm ${MYBASEDIR}/globals.sql
-    pg_dumpall  --globals-only -f ${MYBASEDIR}/globals.sql
-  else
-    echo "Dump users and permisions"
-    pg_dumpall  --globals-only -f ${MYBASEDIR}/globals.sql
-  fi
-  pg_dump -Fc -f ${FILENAME}  ${DB}
+  FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
+  echo "Backing up $DB to s3://${S3_BUCKET}/${FILENAME}"  >> /var/log/cron.log
+  pg_dump -Fc ${DB} | aws s3 cp - s3://${S3_BUCKET}/${FILENAME}
 done
-
-if [ "${REMOVE_BEFORE:-}" ]; then
-  TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
-
-  echo "Removing following backups older than ${REMOVE_BEFORE} days" >> /var/log/cron.log
-  find ${MYBASEDIR}/* -type f -mmin +${TIME_MINUTES} -delete &>> /var/log/cron.log
-fi

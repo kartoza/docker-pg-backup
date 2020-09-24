@@ -65,6 +65,11 @@ export DUMPPREFIX=$DUMPPREFIX
 export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
 export REMOVE_BEFORE=$REMOVE_BEFORE
 export DBLIST=\"$DBLIST\"
+export S3_BUCKET=\"$S3_BUCKET\"
+export S3_BUCKET_PREFIX=\"$S3_BUCKET_PREFIX\"
+export AWS_ACCESS_KEY_ID=\"$AWS_ACCESS_KEY_ID\"
+export AWS_SECRET_ACCESS_KEY=\"$AWS_SECRET_ACCESS_KEY\"
+
  " > /pgenv.sh
 echo "Start script running with these environment options"
 cat /pgenv.sh

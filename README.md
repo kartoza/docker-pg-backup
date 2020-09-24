@@ -1,3 +1,16 @@
+# This is a Fork
+
+Thisis forked from https://github.com/kartoza/docker-pg-backup
+
+Instead of backing up locally, backups go to a s3 bucket.
+
+Additional env vars:
+
+`S3_BUCKET`: the bucket where to store the dumps. e.g.: `my-backups`
+`S3_BUCKET_PREFIX`: A prefix for the backups. e.g.: `my-db/production`
+
+You might will probably need authentication. You can either add  the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` env vars, or give your EC2 instance the right IAM role.
+
 # Docker PG Backup
 
 
