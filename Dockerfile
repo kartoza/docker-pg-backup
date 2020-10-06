@@ -1,7 +1,7 @@
 FROM kartoza/postgis:9.6-2.4
 MAINTAINER tim@kartoza.com
  
-RUN apt-get -y update; apt-get install -y postgresql-client
+RUN apt-get -y update; apt-get install -y postgresql-client-9.6
 ADD backups-cron /etc/cron.d/backups-cron
 RUN touch /var/log/cron.log
 ADD backups.sh /backups.sh
