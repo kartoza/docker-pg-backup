@@ -27,6 +27,7 @@ services:
        - POSTGRES_USER=docker
        - POSTGRES_PASS=docker
        - POSTGRES_PORT=5432
+       - CRON_SCHEDULE="0 23 * * *"
        # For restore script
        - TARGET_DB=gis
        - WITH_POSTGIS=1
