@@ -34,6 +34,7 @@ if [[ ${STORAGE_BACKEND} == 'FILE' ]];then
   MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
   mkdir -p ${MYBACKUPDIR}
   cd ${MYBACKUPDIR}
+  pwd
 elif [[ ${STORAGE_BACKEND} == 'AWS' ]]; then
   MYBASEDIR=${S3_BUCKET}
   MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
@@ -43,7 +44,6 @@ fi
 
 
 
-echo "Backup running to $MYBACKUPDIR" >> /var/log/cron.log
 
 #
 # Loop through each pg database backing it up
@@ -51,10 +51,12 @@ echo "Backup running to $MYBACKUPDIR" >> /var/log/cron.log
 #echo "Databases to backup: ${DBLIST}" >> /var/log/cron.log
 # Dump globals and sync to S3 bucket if available
 if [[ ${STORAGE_BACKEND} == 'FILE' ]];then
+  echo "Backup globals  to ${MYBASEDIR}/globals.sql" >> /var/log/cron.log
   pg_dumpall  --globals-only -f ${MYBASEDIR}/globals.sql
 elif [[ ${STORAGE_BACKEND} == 'AWS' ]]; then
   pg_dumpall  --globals-only -f ${MYBASEDIR}/globals.sql
   aws s3 cp ${MYBASEDIR}/globals.sql s3://${MYBASEDIR}/
+  echo "Sync globals to S3 bucket  ${MYBASEDIR}/globals.sql" >> /var/log/cron.log
 fi
 
 # loop through all DB and dump them
@@ -68,9 +70,12 @@ do
   fi
   if [[ ${STORAGE_BACKEND} == 'FILE' ]];then
       pg_dump -Fc -f ${FILENAME}  ${DB}
+      echo "Backing up $FILENAME"  >> /var/log/cron.log
   elif [[ ${STORAGE_BACKEND} == 'AWS' ]]; then
       pg_dump -Fc -f ${FILENAME}  ${DB}
       aws s3 cp ${FILENAME} s3://${MYBASEDIR}/
+      echo "Finished syncing to AWS"
+      echo "Sync DB ${DB} as ${FILENAME} to ${S3_BUCKET}" >> /var/log/cron.log
       rm ${FILENAME}
   fi
 

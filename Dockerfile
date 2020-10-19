@@ -6,10 +6,10 @@ RUN touch /var/log/cron.log
 ENV \
     CRON_SCHEDULE='0 23 * * *' \
     AWS_CONFIG_LOCATION=/root/.aws \
-    AWS_CONFIG_FILE=$AWS_CONFIG_LOCATION/config \
+    AWS_CONFIG_FILE=/root/.aws/config \
     STORAGE_BACKEND='FILE' \
-    AWS_ACCESS_KEY_ID='' \
-    AWS_SECRET_ACCESS_KEY='' \
+    AWS_ACCESS_KEY_ID= \
+    AWS_SECRET_ACCESS_KEY= \
     AWS_DEFAULT_REGION='us-west-2' \
     AWS_DEFAULT_OUTPUT='json' \
     S3_BUCKET='db_backups'
