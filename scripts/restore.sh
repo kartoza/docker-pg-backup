@@ -30,4 +30,4 @@ fi
 
 echo "Restoring dump file"
 psql -f /backups/globals.sql ${TARGET_DB}
-pg_restore ${TARGET_ARCHIVE} | psql -d ${TARGET_DB}
+pg_restore ${TARGET_ARCHIVE}  -d ${TARGET_DB}

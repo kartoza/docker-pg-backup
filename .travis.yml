@@ -13,7 +13,7 @@ script:
   - docker-compose exec dbbackup /bin/bash -c "until psql -l; do echo 'db unavailable. sleeping'; sleep 1; done"
   - docker-compose exec dbbackup ls
   # Test backup
-  - docker-compose exec dbbackup /backups.sh
+  - docker-compose exec dbbackup /backup-scripts/backups.sh
   - export ARCHIVE_DUMP="backups/$(date +%Y)/$(date +%B)/watchkeeper_gis.$(date +%d-%B-%Y).dmp"
   - ls -lah ${ARCHIVE_DUMP}
   # Test restore
@@ -21,7 +21,7 @@ script:
   - docker-compose exec dbbackup psql -l gis
   - docker-compose exec dbbackup dropdb gis
   - docker-compose exec dbbackup psql -l
-  - docker-compose exec dbbackup /restore.sh
+  - docker-compose exec dbbackup /backup-scripts/restore.sh
   - docker-compose exec dbbackup psql -l gis
 
 before_script:

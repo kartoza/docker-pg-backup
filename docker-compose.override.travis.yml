@@ -3,11 +3,12 @@ version: '2.1'
 
 services:
   dbbackup:
-    image: kartoza/pg-backup:12.0
+    image: kartoza/pg-backup:13.0
     environment:
       # Postgres environment variable
       # Can be set to execute PG tools directly
-      - PGHOST=db
-      - PGUSER=docker
-      - PGPASSWORD=docker
-      - PGPORT=5432
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=docker
+      - POSTGRES_PASS=docker
+      - POSTGRES_PORT=5432
+      - CRON_SCHEDULE=*/1 * * * *

@@ -1,39 +1,35 @@
-
 version: '2.1'
 
 volumes:
-   db-backups:
-   db-data:
+  db-backups:
+  db-data:
 
 services:
-   db:
-      image: kartoza/postgis:13.0
-      volumes:
+  db:
+    image: kartoza/postgis:13.0
+    volumes:
       - db-data:/var/lib/postgresql
-      - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
-      restart: on-failure
-      healthcheck:
-        test: "exit 0"
+    restart: on-failure
+    healthcheck:
+      test: "exit 0"
 
-   db-dbbackups:
-     image: kartoza/pg-backup:13.0
-     volumes:
-       - db-backups:/backups
-     environment:
-       - DUMPPREFIX=PG_gis
-       # List databases to back up; defaults to all
-       # Remove backups older than (in days)
-       - REMOVE_BEFORE=7
-       - POSTGRES_HOST=db
-       - POSTGRES_USER=docker
-       - POSTGRES_PASS=docker
-       - POSTGRES_PORT=5432
-       - CRON_SCHEDULE=*/5 * * * *
-       # For restore script
-       - TARGET_DB=gis
-       - WITH_POSTGIS=1
-       - TARGET_ARCHIVE=/backups/target_archive.dmp
-     restart: on-failure
-     depends_on:
-       db:
-         condition: service_healthy
+  dbbackups:
+    image: kartoza/pg-backup:13.0
+    volumes:
+      - db-backups:/backups
+    environment:
+      - DUMPPREFIX=PG_gis
+      - REMOVE_BEFORE=7 # Remove backups older than (in days)
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=docker
+      - POSTGRES_PASS=docker
+      - POSTGRES_PORT=5432
+      - CRON_SCHEDULE=*/5 * * * *
+      # For restore script
+      - TARGET_DB=gis
+      - WITH_POSTGIS=1
+      - TARGET_ARCHIVE=/backups/target_archive.dmp
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy

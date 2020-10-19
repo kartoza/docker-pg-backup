@@ -34,7 +34,6 @@ if [[ ${STORAGE_BACKEND} == 'FILE' ]];then
   MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
   mkdir -p ${MYBACKUPDIR}
   cd ${MYBACKUPDIR}
-  pwd
 elif [[ ${STORAGE_BACKEND} == 'AWS' ]]; then
   MYBASEDIR=${S3_BUCKET}
   MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
@@ -87,7 +86,7 @@ if [ "${REMOVE_BEFORE:-}" ]; then
   if [[ ${STORAGE_BACKEND} == 'FILE' ]];then
     find ${MYBASEDIR}/* -type f -mmin +${TIME_MINUTES} -delete &>> /var/log/cron.log
   elif [[ ${STORAGE_BACKEND} == 'AWS' ]]; then
-    for file in `aws s3 ls 's3://${MYBASEDIR}/' | find ${MYBASEDIR}/* -type f -mmin +${TIME_MINUTES}`;
+    for file in  find $(aws s3 ls 's3://${MYBASEDIR}/*') -type f -mmin +${TIME_MINUTES};
     do
       aws s3 rm --recursive s3://${MYBASEDIR}/07-30-2019/$file;
     done

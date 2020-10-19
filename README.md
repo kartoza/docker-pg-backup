@@ -21,28 +21,22 @@ get our docker trusted build like this:
 
 ```
 docker pull kartoza/pg-backup:latest
-docker pull kartoza/pg-backup:9.6
-docker pull kartoza/pg-backup:9.5
-docker pull kartoza/pg-backup:9.4
-docker pull kartoza/pg-backup:9.3
+docker pull kartoza/pg-backup:${VERSION}
+where VERSION=13.0 ie
 ```
 
-We highly suggest that you use a tagged image (9.6 currently available) as
-latest may change and may not successfully back up your database. Use the same or
-greater version of postgis as the database you are backing up.
+We highly suggest that you use a tagged image that match the PostgreSQL image you are running i.e
+(13.0 for backing up kartoza/postgis:13.0 DB). The
+latest tag  may change and may not successfully back up your database. 
 
 
 To build the image yourself without apt-cacher (also consumes more bandwidth
 since deb packages need to be refetched each time you build) do:
 
 ```
-docker build -t kartoza/pg-backups .
-```
-
-If you do not wish to do a local checkout first then build directly from github.
-
-```
-git clone git://github.com/kartoza/docker-postgis
+git clone https://github.com/kartoza/docker-pg-backup.git
+cd docker-pg-backup
+./build.sh # It will build the latest version
 ```
 
 ## Run
@@ -51,24 +45,16 @@ git clone git://github.com/kartoza/docker-postgis
 To create a running container do:
 
 ```
-docker run --name="backups"\
-           --hostname="pg-backups" \
-           --link=watchkeeper_db_1:db \
-           -v backups:/backups \
-           -i -d kartoza/pg-backup:9.4
+docker run --name="backups" --hostname="pg-backups" --link db1:db -v backups:/backups -i -d kartoza/pg-backup:13.0
 ```
 
-In this example I used a volume into which the actual backups will be
-stored.
-
-## Specifying environment
+## Specifying environment variables
 
 
 You can also use the following environment variables to pass a
 user name and password etc for the database connection.
 
-**Note:** These variable names were changed when updating to support our PG version 10 image so that the names used here are consistent with those used in the postgis v10 image.
-
+* CRON_SCHEDULE=0 23 * * * specifies the cron schedule 
 * POSTGRES_USER if not set, defaults to : docker
 * POSTGRES_PASS if not set, defaults to : docker
 * POSTGRES_PORT if not set, defaults to : 5432
@@ -89,49 +75,10 @@ database dumps.
 
 * DUMPPREFIX if not set, defaults to : PG
 
-Example usage:
 
-```
-docker run -e DUMPPREFIX=foo -link db -i -d kartoza/pg-backup
-```
+Here is a more typical example using [docker-composer](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose.yml):
 
-Here is a more typical example using docker-composer (formerly known as fig):
 
-For ``docker-compose.yml``:
-
-```
-db:
-  image: kartoza/postgis:9.4-2.1
-  volumes:
-    - ./pg/postgres_data:/var/lib/postgresql
-    - ./pg/setup_data:/home/setup
-  environment:
-    - USERNAME=docker
-    - PASS=docker
-
-dbbackup:
-  image: kartoza/pg-backup:9.4
-  hostname: pg-backups
-  volumes:
-    - ./backups:/backups
-  links:
-    - db:db
-  environment:
-    - DUMPPREFIX=PG_YOURSITE
-    # These are all defaults anyway, but setting explicitly in
-    # case we ever want to ever use different credentials
-    - POSTGRES_USER=docker
-    - POSTGRES_PASS=docker
-    - POSTGRES_PORT=5432
-    - POSTGRES_HOST=db
-    - POSTGRES_DBNAME=gis  
-```
-
-Then run using:
-
-```
-docker-compose up -d dbbackup
-```
 
 ## Filename format
 
@@ -157,6 +104,21 @@ The backup archive would be something like
 /backups/latest.gis.dmp
 ```
 
+## Backing up to alternate backends
+
+The default behaviour is to backup the database and globals to a local
+storage. In some cases it may be desirable to backup to S3 Bucket.
+An environment variable can be used to control this.
+
+If the `STORAGE_BACKEND='AWS'` you will need to use additional variables
+
+* `STORAGE_BACKEND=<FILE or AWS>`
+* `AWS_ACCESS_KEY_ID=<KEY_ID>`
+* `AWS_SECRET_ACCESS_KEY=<KEY>`
+* `AWS_DEFAULT_REGION=<region eg us-west-2`
+* `AWS_DEFAULT_OUTPUT=< output e.g json>` 
+* `S3_BUCKET=<name>`
+
 ## Restoring
 
 A simple restore script is provided.
@@ -173,7 +135,7 @@ You need to specify some environment variables first:
  then you can execute a restore process like this:
 
  ```
- docker-compose exec dbbackup /restore.sh
+ docker-compose exec dbbackup /backup-scripts/restore.sh
  ```
 
 ## Credits
