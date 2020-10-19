@@ -74,7 +74,7 @@ if [[ -f /backup-scripts/backups-cron ]]; then
     rm /backup-scripts/backups-cron
 fi
 cat >>/backup-scripts/backups-cron <<EOF
-${CRON_SCHEDULE} /backup-scripts/backups.sh 2>&1
+${CRON_SCHEDULE} /bin/bash -c "/backup-scripts/backups.sh" 2>&1
 
 EOF
 
