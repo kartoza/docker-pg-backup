@@ -9,6 +9,12 @@ services:
     image: kartoza/postgis:13.0
     volumes:
       - db-data:/var/lib/postgresql
+    environment:
+      - POSTGRES_DB=gis
+      - POSTGRES_USER=docker
+      - POSTGRES_PASS=docker
+      - ALLOW_IP_RANGE=0.0.0.0/0
+      - POSTGRES_MULTIPLE_EXTENSIONS=postgis,hstore,postgis_topology,postgis_raster,pgrouting
     restart: on-failure
     healthcheck:
       test: "exit 0"
@@ -19,16 +25,17 @@ services:
       - db-backups:/backups
     environment:
       - DUMPPREFIX=PG_gis
-      - REMOVE_BEFORE=7 # Remove backups older than (in days)
       - POSTGRES_HOST=db
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
       - CRON_SCHEDULE=*/5 * * * *
+      # Add a custom archive so that it can be used to restore as a test
+      #- ARCHIVE_FILENAME=latest
       # For restore script
-      - TARGET_DB=gis
-      - WITH_POSTGIS=1
-      - TARGET_ARCHIVE=/backups/target_archive.dmp
+      #- TARGET_DB=gis
+      #- WITH_POSTGIS=1
+      #- TARGET_ARCHIVE=/backups/latest.gis.dmp
     restart: on-failure
     depends_on:
       db:
