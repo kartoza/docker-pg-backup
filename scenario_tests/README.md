@@ -52,13 +52,13 @@ Directory should contains:
 Explanations:
 
 Host level test script is used to setup the docker service, then run the unit test when 
-the service is ready. You can copy paste from existing `collations` for generic script.
+the service is ready. You can copy paste from existing `restore` for generic script.
 
 `docker-compose.yml` file should mount your `tests` directory and provides settings 
 needed by the service that are going to be tested.
 
 `tests` directory contains the actual test script that will be run from *inside* 
-the service. For example, in `collations` scenario `test.sh` (service level scripts) 
+the service. For example, in `restore` scenario `test.sh` (service level scripts) 
 will start python unittest script with necessary variables.
 
 Add your scenario to travis config:
