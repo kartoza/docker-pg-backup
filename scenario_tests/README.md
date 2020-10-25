@@ -9,15 +9,15 @@ Go into root repo and run
 ./build-test.sh
 ```
 
-It will create a tagged image `kartoza/postgis:manual-build`
+It will create a tagged image `kartoza/pg-backup:manual-build`
 
 Each scenario tests in this directory use this image.
 
 To run each scenario test, go into the scenario directory and run test script:
 
 ```
-# Testing collations scenario
-cd collations
+# Testing restore scenario
+cd restore
 ./test.sh
 ```
 
@@ -70,7 +70,5 @@ will look like this:
 
 ```
 env:
-  - SCENARIO=replications
-  - SCENARIO=collations
-  - SCENARIO=my_test EXTRA_SETTING_1=value1 EXTRA_SETTING_2=value2 EXTRA_SETTING_3=value3 
+  - SCENARIO=restore
 ```
