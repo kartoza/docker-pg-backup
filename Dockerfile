@@ -1,16 +1,13 @@
-FROM kartoza/postgis:12.1
+FROM kartoza/postgis:13.0
 MAINTAINER tim@kartoza.com
 
-RUN apt-get -y update; apt-get -y --no-install-recommends install postgresql-client cron
+RUN apt-get -y update; apt-get -y --no-install-recommends install  cron
 RUN touch /var/log/cron.log
 
-COPY backups-cron /backups-cron
-COPY backups.sh /backups.sh
-COPY restore.sh /restore.sh
-COPY start.sh /start.sh
-RUN chmod 0755 /*.sh
+ADD scripts /backup-scripts
+RUN chmod 0755 /backup-scripts/*.sh
 
-ENTRYPOINT ["/bin/bash", "/start.sh"]
+ENTRYPOINT ["/bin/bash", "/backup-scripts/start.sh"]
 CMD ["/docker-entrypoint.sh"]
 
 

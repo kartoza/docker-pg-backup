@@ -70,7 +70,7 @@ echo "Start script running with these environment options"
 cat /pgenv.sh
 set | grep PG
 
-# Now launch cron in then foreground.
-crontab /backups-cron
+# Now launch cron in the foreground.
+crontab /backup-scripts/backups-cron
 
 cron -f
