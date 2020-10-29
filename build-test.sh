@@ -2,4 +2,4 @@
 
 ./build.sh
 
-docker build -t kartoza/pg-backup:13.0 -f Dockerfile.test .
+docker build -t kartoza/pg-backup:manual-build -f Dockerfile.test .

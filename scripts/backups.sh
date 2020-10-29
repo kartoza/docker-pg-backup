@@ -27,7 +27,7 @@ do
   if [ -z "${ARCHIVE_FILENAME:-}" ]; then
   	FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
   else
-  	FILENAME="${ARCHIVE_FILENAME}.${DB}.dmp"
+  	FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
   fi
   pg_dump -Fc -f ${FILENAME}  ${DB}
 done
