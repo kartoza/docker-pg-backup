@@ -1,16 +1,16 @@
-FROM kartoza/postgis:12.1
+FROM kartoza/pg-backup:manual-build
 MAINTAINER tim@kartoza.com
 
-RUN apt-get -y update; apt-get -y --no-install-recommends install postgresql-client cron
-RUN touch /var/log/cron.log
+COPY scenario_tests/utils/requirements.txt /lib/utils/requirements.txt
 
-COPY backups-cron /backups-cron
-COPY backups.sh /backups.sh
-COPY restore.sh /restore.sh
-COPY start.sh /start.sh
-RUN chmod 0755 /*.sh
+RUN set -eux \
+    && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update \
+    && apt-get -y --no-install-recommends install python3-pip \
+    && apt-get -y --purge autoremove \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["/bin/bash", "/start.sh"]
-CMD ["/docker-entrypoint.sh"]
+RUN pip3 install -r /lib/utils/requirements.txt
 
 

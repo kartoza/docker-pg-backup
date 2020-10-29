@@ -15,24 +15,19 @@ cd ${MYBACKUPDIR}
 
 echo "Backup running to $MYBACKUPDIR" >> /var/log/cron.log
 
-#
+# Backup globals Always get the latest
+pg_dumpall  --globals-only -f ${MYBASEDIR}/globals.sql
+
+
 # Loop through each pg database backing it up
-#
-#echo "Databases to backup: ${DBLIST}" >> /var/log/cron.log
+
 for DB in ${DBLIST}
 do
   echo "Backing up $DB"  >> /var/log/cron.log
   if [ -z "${ARCHIVE_FILENAME:-}" ]; then
   	FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
   else
-  	FILENAME="${ARCHIVE_FILENAME}.${DB}.dmp"
-  fi
-  if [[  -f ${MYBASEDIR}/globals.sql ]]; then
-    rm ${MYBASEDIR}/globals.sql
-    pg_dumpall  --globals-only -f ${MYBASEDIR}/globals.sql
-  else
-    echo "Dump users and permisions"
-    pg_dumpall  --globals-only -f ${MYBASEDIR}/globals.sql
+  	FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
   fi
   pg_dump -Fc -f ${FILENAME}  ${DB}
 done

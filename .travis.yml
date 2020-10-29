@@ -1,37 +1,20 @@
 sudo: required
 
+language: python
+
 services:
   - docker
 
-env:
-  - COMPOSE_FILE=docker-compose.yml:docker-compose.override.travis.yml
+python:
+  - '3.7'
 
-script:
-  - ls -lah
-  - docker-compose up -d
-  - docker-compose ps
-  - docker-compose exec dbbackup /bin/bash -c "until psql -l; do echo 'db unavailable. sleeping'; sleep 1; done"
-  - docker-compose exec dbbackup ls
-  # Test backup
-  - docker-compose exec dbbackup /backups.sh
-  - export ARCHIVE_DUMP="backups/$(date +%Y)/$(date +%B)/watchkeeper_gis.$(date +%d-%B-%Y).dmp"
-  - ls -lah ${ARCHIVE_DUMP}
-  # Test restore
-  - docker-compose exec dbbackup cp /${ARCHIVE_DUMP} /backups/target_archive.dmp
-  - docker-compose exec dbbackup psql -l gis
-  - docker-compose exec dbbackup dropdb gis
-  - docker-compose exec dbbackup psql -l
-  - docker-compose exec dbbackup /restore.sh
-  - docker-compose exec dbbackup psql -l gis
+env:
+  - SCENARIO=restore
 
 before_script:
   - ./build-test.sh
 
-notifications:
-  irc:
-    channels:
-      - "irc.freenode.org#inasafe"
-    use_notice: true
-
-  email:
-    - tim@kartoza.com
+script:
+  - pushd scenario_tests/${SCENARIO}
+  - ./test.sh
+  - popd
