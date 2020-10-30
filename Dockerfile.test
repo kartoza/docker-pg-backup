@@ -1,22 +1,16 @@
-FROM kartoza/postgis:13.0
+FROM kartoza/pg-backup:manual-build
 MAINTAINER tim@kartoza.com
 
-RUN apt-get -y update; apt-get -y --no-install-recommends install  cron awscli
-RUN touch /var/log/cron.log
-ENV \
-    CRON_SCHEDULE='0 23 * * *' \
-    AWS_CONFIG_LOCATION=/root/.aws \
-    AWS_CONFIG_FILE=/root/.aws/config \
-    STORAGE_BACKEND='FILE' \
-    AWS_ACCESS_KEY_ID= \
-    AWS_SECRET_ACCESS_KEY= \
-    AWS_DEFAULT_REGION='us-west-2' \
-    AWS_DEFAULT_OUTPUT='json' \
-    S3_BUCKET='db_backups'
+COPY scenario_tests/utils/requirements.txt /lib/utils/requirements.txt
 
-ADD scripts /backup-scripts
-RUN chmod 0755 /backup-scripts/*.sh
+RUN set -eux \
+    && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update \
+    && apt-get -y --no-install-recommends install python3-pip \
+    && apt-get -y --purge autoremove \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["/bin/bash", "/backup-scripts/start.sh"]
-CMD ["/scripts/docker-entrypoint.sh"]
+RUN pip3 install -r /lib/utils/requirements.txt
+
 

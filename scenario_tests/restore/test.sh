@@ -13,11 +13,6 @@ sleep 120
 # Restore DB backup
 docker-compose exec pg_restore  /backup-scripts/backups.sh
 
-# Preparing pg_restore cluster
-until docker-compose exec pg_restore pg_isready; do
-  sleep 10
-done;
-
 # Restore DB backup
 docker-compose exec pg_restore  /backup-scripts/restore.sh
 

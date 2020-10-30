@@ -1,7 +1,7 @@
 # Docker PG Backup
 
 
-A simple docker container that runs PostgrSQK / PostGIS backups (PostGIS is not required it will backup any PG database). 
+A simple docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
 It is intended to be used primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
 docker image. By default it will create a backup once per night (at 23h00)in a
 nicely ordered directory by year / month.
@@ -54,7 +54,6 @@ docker run --name="backups" --hostname="pg-backups" --link db1:db -v backups:/ba
 You can also use the following environment variables to pass a
 user name and password etc for the database connection.
 
-* CRON_SCHEDULE=0 23 * * * specifies the cron schedule 
 * POSTGRES_USER if not set, defaults to : docker
 * POSTGRES_PASS if not set, defaults to : docker
 * POSTGRES_PORT if not set, defaults to : 5432
@@ -104,21 +103,6 @@ The backup archive would be something like
 /backups/latest.gis.dmp
 ```
 
-## Backing up to alternate backends
-
-The default behaviour is to backup the database and globals to a local
-storage. In some cases it may be desirable to backup to S3 Bucket.
-An environment variable can be used to control this.
-
-If the `STORAGE_BACKEND='AWS'` you will need to use additional variables
-
-* `STORAGE_BACKEND=<FILE or AWS>`
-* `AWS_ACCESS_KEY_ID=<KEY_ID>`
-* `AWS_SECRET_ACCESS_KEY=<KEY>`
-* `AWS_DEFAULT_REGION=<region eg us-west-2`
-* `AWS_DEFAULT_OUTPUT=< output e.g json>` 
-* `S3_BUCKET=<name>`
-
 ## Restoring
 
 A simple restore script is provided.
@@ -141,4 +125,6 @@ You need to specify some environment variables first:
 ## Credits
 
 Tim Sutton (tim@kartoza.com)
-April 2015
+Admire Nyakudya (admire@kartoza.com)
+Rizky Maulana (rizky@kartoza.com)
+October 2020

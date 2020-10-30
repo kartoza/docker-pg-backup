@@ -9,15 +9,15 @@ Go into root repo and run
 ./build-test.sh
 ```
 
-It will create a tagged image `kartoza/postgis:manual-build`
+It will create a tagged image `kartoza/pg-backup:manual-build`
 
 Each scenario tests in this directory use this image.
 
 To run each scenario test, go into the scenario directory and run test script:
 
 ```
-# Testing collations scenario
-cd collations
+# Testing restore scenario
+cd restore
 ./test.sh
 ```
 
@@ -52,13 +52,13 @@ Directory should contains:
 Explanations:
 
 Host level test script is used to setup the docker service, then run the unit test when 
-the service is ready. You can copy paste from existing `collations` for generic script.
+the service is ready. You can copy paste from existing `restore` for generic script.
 
 `docker-compose.yml` file should mount your `tests` directory and provides settings 
 needed by the service that are going to be tested.
 
 `tests` directory contains the actual test script that will be run from *inside* 
-the service. For example, in `collations` scenario `test.sh` (service level scripts) 
+the service. For example, in `restore` scenario `test.sh` (service level scripts) 
 will start python unittest script with necessary variables.
 
 Add your scenario to travis config:
@@ -70,7 +70,5 @@ will look like this:
 
 ```
 env:
-  - SCENARIO=replications
-  - SCENARIO=collations
-  - SCENARIO=my_test EXTRA_SETTING_1=value1 EXTRA_SETTING_2=value2 EXTRA_SETTING_3=value3 
+  - SCENARIO=restore
 ```

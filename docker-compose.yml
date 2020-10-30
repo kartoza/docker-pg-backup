@@ -1,3 +1,4 @@
+
 version: '2.1'
 
 volumes:
@@ -29,7 +30,6 @@ services:
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - CRON_SCHEDULE=*/5 * * * *
       # Add a custom archive so that it can be used to restore as a test
       #- ARCHIVE_FILENAME=latest
       # For restore script
