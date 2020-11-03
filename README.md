@@ -62,6 +62,15 @@ user name and password etc for the database connection.
 * ARCHIVE_FILENAME you can use your specified filename format here, default to empty, which means it will use default filename format.
 * DBLIST a space-separated list of databases to backup, e.g. `gis postgres`. Default is all databases.
 * REMOVE_BEFORE remove all old backups older than specified amount of days, e.g. `30` would only keep backup files younger than 30 days. Default: no files are ever removed.
+* DUMP_ARGS='-Fc' The default dump argument to generate compressed 
+database dumps. You can change this to generate other formats ie 
+plain SQL dumps.
+* STORAGE_BACKEND='FILE' The default backend is to store the files on the
+host machine. Alternate backend is the s3 bucket (.ie minio or amazon bucket)
+* DB_TABLES=yes Indicates if you need to dump all the tables in a DB into separate dumps.
+The default behaviour is not to show this so that the dumps are for the database.
+
+
 
 Example usage:
 
@@ -103,6 +112,22 @@ The backup archive would be something like
 /backups/latest.gis.dmp
 ```
 
+# Backing up to S3 bucket
+The script uses [s3cmd](https://s3tools.org/s3cmd) to backup files to S3 bucket.
+
+
+* ACCESS_KEY_ID= Access key for the bucket
+* SECRET_ACCESS_KEY= Secret Access key for the bucket
+* DEFAULT_REGION='us-west-2'  
+* HOST_BASE= 
+* HOST_BUCKET= 
+* SSL_SECURE='True' This determines if the S3 bucket is hosted with SSL site
+* EXTRA_CONF= This is useful to add more configuration information
+to the s3cfg config file.
+* BUCKET=backups Indicates the bucket name that will be created.
+
+
+For a typical usage of this look at the docker-compose-s3.yml
 ## Restoring
 
 A simple restore script is provided.

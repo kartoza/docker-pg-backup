@@ -57,6 +57,8 @@ if [[ -f "${PG_ENV}" ]]; then
 fi
 
 echo "
+export STORAGE_BACKEND=$STORAGE_BACKEND
+export DUMP_ARGS=$DUMP_ARGS
 export PGUSER=$POSTGRES_USER
 export PGPASSWORD=\"$POSTGRES_PASS\"
 export PGPORT=$POSTGRES_PORT

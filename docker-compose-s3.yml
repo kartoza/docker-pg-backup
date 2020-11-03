@@ -2,7 +2,6 @@
 version: '2.1'
 
 volumes:
-  db-backups:
   db-data:
 
 services:
@@ -22,23 +21,20 @@ services:
 
   dbbackups:
     image: kartoza/pg-backup:13.0
-    volumes:
-      - db-backups:/backups
     environment:
       - DUMPPREFIX=PG_gis
       - POSTGRES_HOST=db
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - STORAGE_BACKEND="FILE"
-      - DUMP_ARGS="-Fc"
-      - DB_TABLES=yes
-      # Add a custom archive so that it can be used to restore as a test
-      #- ARCHIVE_FILENAME=latest
-      # For restore script
-      #- TARGET_DB=gis
-      #- WITH_POSTGIS=1
-      #- TARGET_ARCHIVE=/backups/latest.gis.dmp
+      - STORAGE_BACKEND="S3"
+      - ACCESS_KEY_ID=
+      - SECRET_ACCESS_KEY=
+      - DEFAULT_REGION='us-west-2'
+      - BUCKET=backups
+      - HOST_BASE=
+      - HOST_BUCKET=
+      - SSL_SECURE=True
     restart: on-failure
     depends_on:
       db:
