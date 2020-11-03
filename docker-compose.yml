@@ -32,7 +32,7 @@ services:
       - POSTGRES_PORT=5432
       - STORAGE_BACKEND="FILE"
       - DUMP_ARGS="-Fc"
-      - DB_TABLES=yes
+      #- DB_TABLES=yes
       # Add a custom archive so that it can be used to restore as a test
       #- ARCHIVE_FILENAME=latest
       # For restore script

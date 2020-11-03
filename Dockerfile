@@ -11,7 +11,7 @@ ENV \
     STORAGE_BACKEND="FILE" \
     ACCESS_KEY_ID= \
     SECRET_ACCESS_KEY= \
-    DEFAULT_REGION='us-west-2' \
+    DEFAULT_REGION=us-west-2 \
     BUCKET=backups \
     HOST_BASE= \
     HOST_BUCKET= \

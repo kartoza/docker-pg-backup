@@ -57,6 +57,13 @@ if [[ -f "${PG_ENV}" ]]; then
 fi
 
 echo "
+export HOST_BASE=$HOST_BASE
+export HOST_BUCKET=$HOST_BUCKET
+export DEFAULT_REGION=$DEFAULT_REGION
+export SSL_SECURE=$SSL_SECURE
+export ACCESS_KEY_ID=$ACCESS_KEY_ID
+export SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY
+export EXTRA_CONF=$EXTRA_CONF
 export STORAGE_BACKEND=$STORAGE_BACKEND
 export DUMP_ARGS=$DUMP_ARGS
 export PGUSER=$POSTGRES_USER
@@ -71,6 +78,8 @@ export DBLIST=\"$DBLIST\"
 echo "Start script running with these environment options"
 cat /pgenv.sh
 set | grep PG
+
+
 
 # Now launch cron in the foreground.
 crontab /backup-scripts/backups-cron

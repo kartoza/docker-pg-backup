@@ -30,13 +30,12 @@ MYDATE=$(date +%d-%B-%Y)
 MONTH=$(date +%B)
 YEAR=$(date +%Y)
 
-if [[ ${STORAGE_BACKEND} == "FILE" ]]; then
-  MYBASEDIR=/${BUCKET}
-  MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
-  mkdir -p ${MYBACKUPDIR}
-  cd ${MYBACKUPDIR}
-elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
-  MYBACKUPDIR=${YEAR}/${MONTH}
+MYBASEDIR=/${BUCKET}
+MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
+mkdir -p ${MYBACKUPDIR}
+cd ${MYBACKUPDIR}
+
+if [[ ${STORAGE_BACKEND} == "S3" ]]; then
   minio_config
   s3cmd mb s3://${BUCKET}
 fi
@@ -95,11 +94,7 @@ for DB in ${DBLIST}; do
   if [ -z "${ARCHIVE_FILENAME:-}" ]; then
     FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
   else
-    if [[ ${STORAGE_BACKEND} == "FILE" ]]; then
-      FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
-    elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
-      FILENAME="${ARCHIVE_FILENAME}.${DB}.dmp"
-    fi
+    FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
   fi
   if [[ ${STORAGE_BACKEND} == "FILE" ]]; then
     if [ -z "${DB_TABLES:-}" ]; then
@@ -112,11 +107,11 @@ for DB in ${DBLIST}; do
     if [ -z "${DB_TABLES:-}" ]; then
       # TODO GZIP the backup file before syncing to s3 bucket
       pg_dump ${DUMP_ARGS} ${DB} -f ${FILENAME}
-      s3cmd sync -r ${FILENAME} s3://${BUCKET}/
-      rm ${FILENAME}
+      s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
+      rm ${MYBACKUPDIR}/*
     else
       dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
-      s3cmd sync -r ${MYBACKUPDIR} s3://${BUCKET}/
+      s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
       rm ${MYBACKUPDIR}/*
     fi
 
