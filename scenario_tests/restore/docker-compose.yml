@@ -36,10 +36,11 @@ services:
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - TARGET_DB=gis
+      - TARGET_DB=gis_restore
       - WITH_POSTGIS=1
       - TARGET_ARCHIVE=/backups/latest.gis.dmp
       - ARCHIVE_FILENAME=latest
+      - DUMP_ARGS="-Fc -n public"
     depends_on:
       pg_backup:
         condition: service_healthy

@@ -97,6 +97,7 @@ for DB in ${DBLIST}; do
     if [ -z "${DB_TABLES:-}" ]; then
       pg_dump ${DUMP_ARGS} -f ${FILENAME} ${DB}
     else
+
       dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
     fi
     echo "Backing up $FILENAME" >>/var/log/cron.log

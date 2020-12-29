@@ -65,6 +65,8 @@ user name and password etc for the database connection.
 * DUMP_ARGS='-Fc' The default dump argument to generate compressed 
 database dumps. You can change this to generate other formats ie 
 plain SQL dumps.
+* RESTORE_ARGS='-j 4' The restore command to run four parallel jobs. You can 
+  specify other arguments based on official postgis_restore documentation.
 * STORAGE_BACKEND='FILE' The default backend is to store the files on the
 host machine. Alternate backend is the s3 bucket (.ie minio or amazon bucket)
 * DB_TABLES=yes Indicates if you need to dump all the tables in a DB into separate dumps.
@@ -137,7 +139,7 @@ You need to specify some environment variables first:
  * WITH_POSTGIS: Kartoza specific, to generate POSTGIS extension along with the restore process
  * TARGET_ARCHIVE: the full path of the archive to restore
 
- The restore script will delete the `TARGET_DB`, so make sure you know what you are doing.
+**NB:** The restore script will delete the `TARGET_DB` if it matches an existing database, so make sure you know what you are doing.
  Then it will create a new one and restore the content from `TARGET_ARCHIVE`
 
  If you specify these environment variable using docker-compose.yml file,
@@ -152,4 +154,4 @@ You need to specify some environment variables first:
 Tim Sutton (tim@kartoza.com)
 Admire Nyakudya (admire@kartoza.com)
 Rizky Maulana (rizky@kartoza.com)
-October 2020
+December 2020

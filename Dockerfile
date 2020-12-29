@@ -17,6 +17,7 @@ ENV \
     HOST_BUCKET= \
     SSL_SECURE=True \
     DUMP_ARGS="-Fc" \
+    RESTORE_ARGS="-j 4" \
     EXTRA_CONF=
 
 
