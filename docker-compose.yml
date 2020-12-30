@@ -36,7 +36,7 @@ services:
       # Add a custom archive so that it can be used to restore as a test
       #- ARCHIVE_FILENAME=latest
       # For restore script
-      #- TARGET_DB=gis
+      #- TARGET_DB=gis_restore
       #- WITH_POSTGIS=1
       #- TARGET_ARCHIVE=/backups/latest.gis.dmp
     restart: on-failure

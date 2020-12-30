@@ -3,8 +3,8 @@
 
 A simple docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
 It is intended to be used primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
-docker image. By default it will create a backup once per night (at 23h00)in a
-nicely ordered directory by year / month.
+docker image. By default, it will create a backup once per night (at 23h00)in a
+nicely ordered directory by a year / month.
 
 * Visit our page on the docker hub at: https://registry.hub.docker.com/u/kartoza/pg-backup/
 * Visit our page on github at: https://github.com/kartoza/docker-pg-backup
@@ -31,7 +31,7 @@ latest tag  may change and may not successfully back up your database.
 
 
 To build the image yourself without apt-cacher (also consumes more bandwidth
-since deb packages need to be refetched each time you build) do:
+since deb packages need to be fetched each time you build) do:
 
 ```
 git clone https://github.com/kartoza/docker-pg-backup.git
@@ -52,7 +52,7 @@ docker run --name="backups" --hostname="pg-backups" --link db1:db -v backups:/ba
 
 
 You can also use the following environment variables to pass a
-user name and password etc for the database connection.
+username and password etc for the database connection.
 
 * POSTGRES_USER if not set, defaults to : docker
 * POSTGRES_PASS if not set, defaults to : docker
@@ -139,10 +139,15 @@ You need to specify some environment variables first:
  * WITH_POSTGIS: Kartoza specific, to generate POSTGIS extension along with the restore process
  * TARGET_ARCHIVE: the full path of the archive to restore
 
-**NB:** The restore script will delete the `TARGET_DB` if it matches an existing database, so make sure you know what you are doing.
- Then it will create a new one and restore the content from `TARGET_ARCHIVE`
+**NB:** The restore script will try to delete the `TARGET_DB` if it matches an existing database, 
+so make sure you know what you are doing. 
+Then it will create a new one and restore the content from `TARGET_ARCHIVE`
 
- If you specify these environment variable using docker-compose.yml file,
+It is generally a good practice to restore into an empty new database and then manually
+drop and rename the databases. i.e if your original database was called `gis` you can 
+restore into a new database called `gis_restore`
+
+ If you specify these environment variables using docker-compose.yml file,
  then you can execute a restore process like this:
 
  ```
