@@ -10,6 +10,7 @@ python:
 
 env:
   - SCENARIO=restore
+  - SCENARIO=s3
 
 before_script:
   - ./build-test.sh

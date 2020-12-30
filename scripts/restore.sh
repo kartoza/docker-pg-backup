@@ -16,8 +16,10 @@ if [ -z "${TARGET_DB:-}" ]; then
 	exit 1
 fi
 
+
 echo "Dropping target DB"
-dropdb ${TARGET_DB}
+dropdb --if-exists ${TARGET_DB}
+
 
 if [ -z "${WITH_POSTGIS:-}" ]; then
 	echo "Recreate target DB without POSTGIS"
@@ -29,5 +31,6 @@ else
 fi
 
 echo "Restoring dump file"
-psql -f /backups/globals.sql ${TARGET_DB}
-pg_restore ${TARGET_ARCHIVE}  -d ${TARGET_DB}
+# Only works if the cluster is different- all the credentials are the same
+#psql -f /backups/globals.sql ${TARGET_DB}
+pg_restore ${TARGET_ARCHIVE}  -d ${TARGET_DB} ${RESTORE_ARGS}

@@ -3,8 +3,8 @@
 
 A simple docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
 It is intended to be used primarily with our [docker postgis](https://github.com/kartoza/docker-postgis)
-docker image. By default it will create a backup once per night (at 23h00)in a
-nicely ordered directory by year / month.
+docker image. By default, it will create a backup once per night (at 23h00)in a
+nicely ordered directory by a year / month.
 
 * Visit our page on the docker hub at: https://registry.hub.docker.com/u/kartoza/pg-backup/
 * Visit our page on github at: https://github.com/kartoza/docker-pg-backup
@@ -31,7 +31,7 @@ latest tag  may change and may not successfully back up your database.
 
 
 To build the image yourself without apt-cacher (also consumes more bandwidth
-since deb packages need to be refetched each time you build) do:
+since deb packages need to be fetched each time you build) do:
 
 ```
 git clone https://github.com/kartoza/docker-pg-backup.git
@@ -52,7 +52,7 @@ docker run --name="backups" --hostname="pg-backups" --link db1:db -v backups:/ba
 
 
 You can also use the following environment variables to pass a
-user name and password etc for the database connection.
+username and password etc for the database connection.
 
 * POSTGRES_USER if not set, defaults to : docker
 * POSTGRES_PASS if not set, defaults to : docker
@@ -62,6 +62,17 @@ user name and password etc for the database connection.
 * ARCHIVE_FILENAME you can use your specified filename format here, default to empty, which means it will use default filename format.
 * DBLIST a space-separated list of databases to backup, e.g. `gis postgres`. Default is all databases.
 * REMOVE_BEFORE remove all old backups older than specified amount of days, e.g. `30` would only keep backup files younger than 30 days. Default: no files are ever removed.
+* DUMP_ARGS='-Fc' The default dump argument to generate compressed 
+database dumps. You can change this to generate other formats ie 
+plain SQL dumps.
+* RESTORE_ARGS='-j 4' The restore command to run four parallel jobs. You can 
+  specify other arguments based on official postgis_restore documentation.
+* STORAGE_BACKEND='FILE' The default backend is to store the files on the
+host machine. Alternate backend is the s3 bucket (.ie minio or amazon bucket)
+* DB_TABLES=yes Indicates if you need to dump all the tables in a DB into separate dumps.
+The default behaviour is not to show this so that the dumps are for the database.
+
+
 
 Example usage:
 
@@ -103,6 +114,22 @@ The backup archive would be something like
 /backups/latest.gis.dmp
 ```
 
+# Backing up to S3 bucket
+The script uses [s3cmd](https://s3tools.org/s3cmd) to backup files to S3 bucket.
+
+
+* ACCESS_KEY_ID= Access key for the bucket
+* SECRET_ACCESS_KEY= Secret Access key for the bucket
+* DEFAULT_REGION='us-west-2'  
+* HOST_BASE= 
+* HOST_BUCKET= 
+* SSL_SECURE='True' This determines if the S3 bucket is hosted with SSL site
+* EXTRA_CONF= This is useful to add more configuration information
+to the s3cfg config file.
+* BUCKET=backups Indicates the bucket name that will be created.
+
+
+For a typical usage of this look at the docker-compose-s3.yml
 ## Restoring
 
 A simple restore script is provided.
@@ -112,10 +139,15 @@ You need to specify some environment variables first:
  * WITH_POSTGIS: Kartoza specific, to generate POSTGIS extension along with the restore process
  * TARGET_ARCHIVE: the full path of the archive to restore
 
- The restore script will delete the `TARGET_DB`, so make sure you know what you are doing.
- Then it will create a new one and restore the content from `TARGET_ARCHIVE`
+**NB:** The restore script will try to delete the `TARGET_DB` if it matches an existing database, 
+so make sure you know what you are doing. 
+Then it will create a new one and restore the content from `TARGET_ARCHIVE`
 
- If you specify these environment variable using docker-compose.yml file,
+It is generally a good practice to restore into an empty new database and then manually
+drop and rename the databases. i.e if your original database was called `gis` you can 
+restore into a new database called `gis_restore`
+
+ If you specify these environment variables using docker-compose.yml file,
  then you can execute a restore process like this:
 
  ```
@@ -127,4 +159,4 @@ You need to specify some environment variables first:
 Tim Sutton (tim@kartoza.com)
 Admire Nyakudya (admire@kartoza.com)
 Rizky Maulana (rizky@kartoza.com)
-October 2020
+December 2020

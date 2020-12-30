@@ -7,7 +7,7 @@ volumes:
 
 services:
 
-  pg_backup:
+  db:
     image: kartoza/postgis:13.0
     restart: 'always'
     volumes:
@@ -27,22 +27,26 @@ services:
     restart: 'always'
     volumes:
       - pg-backup-data-dir:/backups
-      - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
       - ./tests:/tests
       - ../utils:/lib/utils
     environment:
       - DUMPPREFIX=PG_gis
-      - POSTGRES_HOST=pg_backup
+      - POSTGRES_HOST=db
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - TARGET_DB=gis_restore
+      - TARGET_DB=gis
       - WITH_POSTGIS=1
-      - TARGET_ARCHIVE=/backups/latest.gis.dmp
-      - ARCHIVE_FILENAME=latest
-      - DUMP_ARGS="-Fc -n public"
+      - STORAGE_BACKEND=S3
+      - ACCESS_KEY_ID=${ACCESS_KEY_ID}
+      - SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY}
+      - DEFAULT_REGION=${DEFAULT_REGION}
+      - BUCKET=${BUCKET}
+      - HOST_BASE=${HOST_BASE}
+      - HOST_BUCKET=${HOST_BUCKET}
+      - SSL_SECURE=${SSL_SECURE}
     depends_on:
-      pg_backup:
+      db:
         condition: service_healthy
     healthcheck:
       interval: 60s
