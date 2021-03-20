@@ -8,7 +8,7 @@ volumes:
 services:
 
   pg_backup:
-    image: kartoza/postgis:13.0
+    image: kartoza/postgis:13-3.1
     restart: 'always'
     volumes:
       - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
@@ -27,7 +27,6 @@ services:
     restart: 'always'
     volumes:
       - pg-backup-data-dir:/backups
-      - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
       - ./tests:/tests
       - ../utils:/lib/utils
     environment:
@@ -37,10 +36,11 @@ services:
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
       - TARGET_DB=gis_restore
-      - WITH_POSTGIS=1
       - TARGET_ARCHIVE=/backups/latest.gis.dmp
       - ARCHIVE_FILENAME=latest
       - DUMP_ARGS="-Fc -n public"
+      - WITH_POSTGIS=1
+      - CRON_SCHEDULE=*/1 * * * *
     depends_on:
       pg_backup:
         condition: service_healthy

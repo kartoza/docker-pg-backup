@@ -5,7 +5,6 @@
 
 # Tim Sutton, April 2015
 
-
 # Check if each var is declared and if not,
 # set a sensible default
 if [ -z "${POSTGRES_USER}" ]; then
@@ -41,9 +40,13 @@ if [ -z "${REMOVE_BEFORE}" ]; then
   REMOVE_BEFORE=
 fi
 
+if [ -z "${CRON_SCHEDULE}" ]; then
+  CRON_SCHEDULE='0 23 * * *'
+fi
+
 # How old can files and dirs be before getting trashed? In minutes
 if [ -z "${DBLIST}" ]; then
-  DBLIST=`PGPASSWORD=${POSTGRES_PASS} psql -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}'`
+  DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
 fi
 
 # Now write these all to case file that can be sourced
@@ -53,7 +56,7 @@ fi
 
 PG_ENV="/pgenv.sh"
 if [[ -f "${PG_ENV}" ]]; then
-	rm ${PG_ENV}
+  rm ${PG_ENV}
 fi
 
 echo "
@@ -74,14 +77,23 @@ export DUMPPREFIX=$DUMPPREFIX
 export ARCHIVE_FILENAME="${ARCHIVE_FILENAME}"
 export REMOVE_BEFORE=$REMOVE_BEFORE
 export DBLIST=\"$DBLIST\"
- " > /pgenv.sh
+ " >/pgenv.sh
 echo "Start script running with these environment options"
 cat /pgenv.sh
 set | grep PG
 
-
-
 # Now launch cron in the foreground.
+if [[ ! -f /settings/backups-cron ]]; then
+    echo "/settings/backups-cron.default doesn't exists"
+    # If it doesn't exists, copy from /config directory if exists
+    if [[ -f /config/backups-cron ]]; then
+      cp -f /config/backups-cron /backup-scripts/backups-cron
+    else
+      # default value
+      envsubst < /settings/backups-cron.default > /backup-scripts/backups-cron
+    fi
+fi
+
 crontab /backup-scripts/backups-cron
 
 cron -f

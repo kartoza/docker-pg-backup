@@ -1,8 +1,8 @@
-FROM kartoza/postgis:13.0
+FROM kartoza/postgis:13-3.1
 MAINTAINER tim@kartoza.com
 
 
-RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip  \
+RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip gettext  \
     && apt-get -y --purge autoremove && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install s3cmd
@@ -18,13 +18,15 @@ ENV \
     SSL_SECURE=True \
     DUMP_ARGS="-Fc" \
     RESTORE_ARGS="-j 4" \
-    EXTRA_CONF=
+    CRON_SCHEDULE="0 23 * * *"
 
 
 ADD scripts /backup-scripts
+ADD s3cfg /settings/s3cfg.default
+ADD backups-cron /settings/backups-cron.default
 RUN chmod 0755 /backup-scripts/*.sh
 
 ENTRYPOINT ["/bin/bash", "/backup-scripts/start.sh"]
-CMD ["/docker-entrypoint.sh"]
+CMD ["/scripts/docker-entrypoint.sh"]
 
 

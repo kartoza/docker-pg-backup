@@ -124,9 +124,13 @@ The script uses [s3cmd](https://s3tools.org/s3cmd) to backup files to S3 bucket.
 * HOST_BASE= 
 * HOST_BUCKET= 
 * SSL_SECURE='True' This determines if the S3 bucket is hosted with SSL site
-* EXTRA_CONF= This is useful to add more configuration information
-to the s3cfg config file.
 * BUCKET=backups Indicates the bucket name that will be created.
+
+You can also mount the s3cfg configuration file as 
+
+```
+-v ./data/s3cfg:/config/s3cfg
+```
 
 
 For a typical usage of this look at the docker-compose-s3.yml

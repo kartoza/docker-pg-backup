@@ -1,0 +1,11 @@
+host_base = ${HOST_BASE}
+host_bucket = ${HOST_BUCKET}
+bucket_location = ${DEFAULT_REGION}
+use_https = ${SSL_SECURE}
+
+# Setup access keys
+access_key =  ${ACCESS_KEY_ID}
+secret_key = ${SECRET_ACCESS_KEY}
+
+# Enable S3 v4 signature APIs
+signature_v2 = False
