@@ -3,7 +3,7 @@
 # Function to setup config file for using s3 functions
 function s3_config() {
 
-  if [[ ! -f /settings/s3cfg.default ]]; then
+  if [[ ! -f /settings/s3cfg ]]; then
     echo "/settings/s3cfg doesn't exists"
     # If it doesn't exists, copy from /config directory if exists
     if [[ -f /config/s3cfg ]]; then
