@@ -2,7 +2,7 @@ FROM kartoza/postgis:13.0
 MAINTAINER tim@kartoza.com
 
 
-RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip  \
+RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip vim  \
     && apt-get -y --purge autoremove && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install s3cmd
@@ -26,5 +26,3 @@ RUN chmod 0755 /backup-scripts/*.sh
 
 ENTRYPOINT ["/bin/bash", "/backup-scripts/start.sh"]
 CMD ["/docker-entrypoint.sh"]
-
-

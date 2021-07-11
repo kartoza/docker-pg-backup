@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 source /pgenv.sh
 
 #echo "Running with these environment options" >> /var/log/cron.log
@@ -105,9 +106,11 @@ for DB in ${DBLIST}; do
     echo "Backing up $FILENAME" >>/var/log/cron.log
   elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
     if [ -z "${DB_TABLES:-}" ]; then
-      # TODO GZIP the backup file before syncing to s3 bucket
+      echo "Backing up $FILENAME to s3://${BUCKET}/" >>/var/log/cron.log
       pg_dump ${DUMP_ARGS} ${DB} -f ${FILENAME}
+      gzip $FILENAME
       s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
+      echo "Backing up $FILENAME done" >>/var/log/cron.log
       rm ${MYBACKUPDIR}/*
     else
       dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
