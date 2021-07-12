@@ -19,6 +19,7 @@ ENV \
 ADD build_data /build_data
 ADD scripts /backup-scripts
 RUN chmod 0755 /backup-scripts/*.sh
+RUN sed -i 's/PostGIS/PgBackup/' ~/.bashrc
 
 ENTRYPOINT ["/bin/bash", "/backup-scripts/start.sh"]
 CMD ["/scripts/docker-entrypoint.sh"]
@@ -27,7 +28,7 @@ CMD ["/scripts/docker-entrypoint.sh"]
 ##############################################################################
 # Testing Stage                                                           #
 ##############################################################################
-FROM postgis-prod AS postgis-backup-test
+FROM postgis-backup-production AS postgis-backup-test
 
 COPY scenario_tests/utils/requirements.txt /lib/utils/requirements.txt
 
