@@ -1,10 +1,31 @@
 #!/bin/bash
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 source /pgenv.sh
-source /backup-scripts/s3_functions.sh
 
 #echo "Running with these environment options" >> /var/log/cron.log
 #set | grep PG >> /var/log/cron.log
+
+function s3_config() {
+  if [[ -f /root/.s3cfg ]]; then
+    rm /root/.s3cfg
+  fi
+
+  cat >/root/.s3cfg <<EOF
+host_base = ${HOST_BASE}
+host_bucket = ${HOST_BUCKET}
+bucket_location = ${DEFAULT_REGION}
+use_https = ${SSL_SECURE}
+
+# Setup access keys
+access_key =  ${ACCESS_KEY_ID}
+secret_key = ${SECRET_ACCESS_KEY}
+
+# Enable S3 v4 signature APIs
+signature_v2 = False
+${EXTRA_CONF}
+EOF
+}
 
 MYDATE=$(date +%d-%B-%Y)
 MONTH=$(date +%B)
@@ -47,7 +68,24 @@ ORDER BY table_schema,table_name;"))
   done
 }
 
-
+function clean_s3bucket() {
+  S3_BUCKET=$1
+  DEL_DAYS=$2
+  s3cmd ls s3://${S3_BUCKET} --recursive | while read -r line; do
+    # $line looks like this:
+    #    2021-03-18 18:02 1295063 s3://$BUCKET/2021/March/<backup_file_name>.dmp
+    createDate=$(echo $line | awk '{ print $1" "$2 }')
+    createDate=$(date -d"$createDate" +%s)
+    olderThan=$(date -d"-${DEL_DAYS}" +%s)
+    if [[ $createDate -lt $olderThan ]]; then
+      fileName=$(echo $line | awk '{ print $4 }')
+      echo $fileName
+      if [[ $fileName != "" ]]; then
+        s3cmd del "$fileName"
+      fi
+    fi
+  done
+}
 
 # Loop through each pg database backing it up
 
@@ -68,9 +106,11 @@ for DB in ${DBLIST}; do
     echo "Backing up $FILENAME" >>/var/log/cron.log
   elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
     if [ -z "${DB_TABLES:-}" ]; then
-      # TODO GZIP the backup file before syncing to s3 bucket
+      echo "Backing up $FILENAME to s3://${BUCKET}/" >>/var/log/cron.log
       pg_dump ${DUMP_ARGS} ${DB} -f ${FILENAME}
+      gzip $FILENAME
       s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
+      echo "Backing up $FILENAME done" >>/var/log/cron.log
       rm ${MYBACKUPDIR}/*
     else
       dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
