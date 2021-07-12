@@ -1,0 +1,21 @@
+# Used solely for docker-compose build
+version: '3.9'
+services:
+  postgis-backup-prod:
+    image: kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+    build:
+      context: .
+      # Use yaml anchor for reusability
+      args: &build-args-anchor
+        POSTGRES_MAJOR_VERSION: ${POSTGRES_MAJOR_VERSION}
+        POSTGIS_MAJOR_VERSION: ${POSTGIS_MAJOR_VERSION}
+        POSTGIS_MINOR_RELEASE: ${POSTGIS_MINOR_RELEASE}
+      target: postgis-backup-production
+
+  postgis-backup-test:
+    image: kartoza/pg-backup:manual-build
+    build:
+      context: .
+      args:
+        <<: *build-args-anchor
+      target: postgis-backup-test
