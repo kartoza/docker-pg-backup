@@ -70,6 +70,9 @@ if [ -z "${REMOVE_BEFORE}" ]; then
   REMOVE_BEFORE=
 fi
 
+if [ -z "${CRON_SCHEDULE}" ]; then
+  CRON_SCHEDULE="0 23 * * *"
+fi
 
 # How old can files and dirs be before getting trashed? In minutes
 if [ -z "${DBLIST}" ]; then
@@ -131,7 +134,8 @@ function cron_config() {
       cp -f ${EXTRA_CONFIG_DIR}/backups-cron /backup-scripts
     else
       # default value
-      cp /build_data/backups-cron  /backup-scripts/backups-cron
+      envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
+      
     fi
   fi
 

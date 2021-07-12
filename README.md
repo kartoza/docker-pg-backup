@@ -21,17 +21,22 @@ get our docker trusted build like this:
 
 ```
 docker pull kartoza/pg-backup:latest
-docker pull kartoza/pg-backup:${VERSION}
-where VERSION=13.0 ie
+docker pull kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+```
+
+Where the environment variables are
+```
+POSTGRES_MAJOR_VERSION=13
+POSTGIS_MAJOR_VERSION=3
+POSTGIS_MINOR_RELEASE=1 
 ```
 
 We highly suggest that you use a tagged image that match the PostgreSQL image you are running i.e
-(13.0 for backing up kartoza/postgis:13.0 DB). The
+(kartoza/pg-backup:13-3.1 for backing up kartoza/postgis:13-3.1 DB). The
 latest tag  may change and may not successfully back up your database. 
 
 
-To build the image yourself without apt-cacher (also consumes more bandwidth
-since deb packages need to be fetched each time you build) do:
+To build the image yourself do:
 
 ```
 git clone https://github.com/kartoza/docker-pg-backup.git
@@ -45,7 +50,8 @@ cd docker-pg-backup
 To create a running container do:
 
 ```
-docker run --name="backups" --hostname="pg-backups" --link db1:db -v backups:/backups -i -d kartoza/pg-backup:13.0
+docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:13-3.1
+docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d kartoza/pg-backup:13-3.1
 ```
 
 ## Specifying environment variables
@@ -58,36 +64,25 @@ username and password etc for the database connection.
 * POSTGRES_PASS if not set, defaults to : docker
 * POSTGRES_PORT if not set, defaults to : 5432
 * POSTGRES_HOST if not set, defaults to : db
-* POSTGRES_DBNAME if not set, defaults to : gis
 * ARCHIVE_FILENAME you can use your specified filename format here, default to empty, which means it will use default filename format.
-* DBLIST a space-separated list of databases to backup, e.g. `gis postgres`. Default is all databases.
+* DBLIST a space-separated list of databases to backup, e.g. `gis,data`. Default is all databases.
 * REMOVE_BEFORE remove all old backups older than specified amount of days, e.g. `30` would only keep backup files younger than 30 days. Default: no files are ever removed.
 * DUMP_ARGS='-Fc' The default dump argument to generate compressed 
-database dumps. You can change this to generate other formats ie 
-plain SQL dumps.
+database dumps. You can change this to generate other formats ie plain SQL dumps.
 * RESTORE_ARGS='-j 4' The restore command to run four parallel jobs. You can 
   specify other arguments based on official postgis_restore documentation.
 * STORAGE_BACKEND='FILE' The default backend is to store the files on the
 host machine. Alternate backend is the s3 bucket (.ie minio or amazon bucket)
 * DB_TABLES=yes Indicates if you need to dump all the tables in a DB into separate dumps.
 The default behaviour is not to show this so that the dumps are for the database.
+  
+* CRON_SCHEDULE specifies the cron schedule when the backup needs to run. Defaults to midnight daily.
 
-
-
-Example usage:
-
-```
-docker run -e POSTGRES_USER=bob -e POSTGRES_PASS=secret -link db -i -d kartoza/pg-backup
-```
-
-One other environment variable you may like to set is a prefix for the
-database dumps.
-
-* DUMPPREFIX if not set, defaults to : PG
-
+**Note** To avoid interpolation issues with the env variable `${CRON_SCHEDULE}` you will
+need to provide the variable as a quoted string i.e ${CRON_SCHEDULE}='*/1 * * * *' 
+or ${CRON_SCHEDULE}="*/1 * * * *" 
 
 Here is a more typical example using [docker-composer](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose.yml):
-
 
 
 ## Filename format
@@ -115,7 +110,7 @@ The backup archive would be something like
 ```
 
 # Backing up to S3 bucket
-The script uses [s3cmd](https://s3tools.org/s3cmd) to backup files to S3 bucket.
+The script uses [s3cmd](https://s3tools.org/s3cmd) for backing up files to S3 bucket.
 
 
 * ACCESS_KEY_ID= Access key for the bucket
@@ -126,11 +121,13 @@ The script uses [s3cmd](https://s3tools.org/s3cmd) to backup files to S3 bucket.
 * SSL_SECURE='True' This determines if the S3 bucket is hosted with SSL site
 * BUCKET=backups Indicates the bucket name that will be created.
 
-You can also mount the s3cfg configuration file as 
+You can also mount the `s3cfg` or `backups-cron` configuration file as 
 
 ```
--v ./data/s3cfg:/config/s3cfg
+-e ${EXTRA_CONFIG_DIR}=/settings
+-v /data:/settings
 ```
+Where `s3cfg` is located in `/data`
 
 
 For a typical usage of this look at the docker-compose-s3.yml
@@ -163,4 +160,4 @@ restore into a new database called `gis_restore`
 Tim Sutton (tim@kartoza.com)
 Admire Nyakudya (admire@kartoza.com)
 Rizky Maulana (rizky@kartoza.com)
-December 2020
+July 2021
