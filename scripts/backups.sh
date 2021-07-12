@@ -24,9 +24,9 @@ echo "Backup running to $MYBACKUPDIR" >>/var/log/cron.log
 # Backup globals Always get the latest
 
 if [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
-  pg_dumpall --globals-only -f ${MYBASEDIR}/globals.sql
+  PGPASSWORD=${POSTGRES_PASS} pg_dumpall -h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}  --globals-only -f ${MYBASEDIR}/globals.sql
 elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
-  pg_dumpall --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
+  PGPASSWORD=${POSTGRES_PASS} pg_dumpall -h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
   echo "Sync globals.sql to ${BUCKET} bucket  " >>/var/log/cron.log
 fi
 
