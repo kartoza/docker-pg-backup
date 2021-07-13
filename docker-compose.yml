@@ -30,7 +30,6 @@ services:
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - CRON_SCHEDULE='*/1 * * * *'
     restart: on-failure
     depends_on:
       db:
