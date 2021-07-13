@@ -7,7 +7,7 @@ volumes:
 
 services:
   db:
-    image: kartoza/postgis:13.0
+    image: kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
     volumes:
       - db-data:/var/lib/postgresql
     environment:
@@ -21,7 +21,7 @@ services:
       test: "exit 0"
 
   dbbackups:
-    image: kartoza/pg-backup:13.0
+    image: kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
     volumes:
       - db-backups:/backups
     environment:
@@ -30,15 +30,6 @@ services:
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - STORAGE_BACKEND="FILE"
-      - DUMP_ARGS="-Fc"
-      #- DB_TABLES=yes
-      # Add a custom archive so that it can be used to restore as a test
-      #- ARCHIVE_FILENAME=latest
-      # For restore script
-      #- TARGET_DB=gis_restore
-      #- WITH_POSTGIS=1
-      #- TARGET_ARCHIVE=/backups/latest.gis.dmp
     restart: on-failure
     depends_on:
       db:
