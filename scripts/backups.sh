@@ -26,9 +26,9 @@ echo "Backup running to $MYBACKUPDIR" >>/var/log/cron.log
 # Backup globals Always get the latest
 
 if [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
-  PGPASSWORD=${POSTGRES_PASS} pg_dumpall -h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}  --globals-only -f ${MYBASEDIR}/globals.sql
+  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only -f ${MYBASEDIR}/globals.sql
 elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
-  PGPASSWORD=${POSTGRES_PASS} pg_dumpall -h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
+  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
   echo "Sync globals.sql to ${BUCKET} bucket  " >>/var/log/cron.log
 fi
 
@@ -43,7 +43,7 @@ for DB in ${DBLIST}; do
   fi
   if [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
     if [ -z "${DB_TABLES:-}" ]; then
-      pg_dump ${DUMP_ARGS} -f ${FILENAME} ${DB}
+      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -f ${FILENAME} ${DB}
     else
       dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
     fi
@@ -51,7 +51,7 @@ for DB in ${DBLIST}; do
   elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
     if [ -z "${DB_TABLES:-}" ]; then
       echo "Backing up $FILENAME to s3://${BUCKET}/" >>/var/log/cron.log
-      pg_dump ${DUMP_ARGS} ${DB} -f ${FILENAME}
+      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} ${DB} -f ${FILENAME}
       gzip $FILENAME
       s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
       echo "Backing up $FILENAME done" >>/var/log/cron.log

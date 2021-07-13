@@ -75,6 +75,9 @@ if [ -z "${DBLIST}" ]; then
   DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql -h ${POSTGRES_HOST} -p 5432 -U ${POSTGRES_USER} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
 fi
 
+if [ -z "${PG_CONN_PARAMETERS}" ]; then
+  PG_CONN_PARAMETERS="-h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"
+fi
 
 function s3_config() {
   if [[ ! -f /root/.s3cfg ]]; then
@@ -112,14 +115,14 @@ function dump_tables() {
   DATABASE_DUMP_OPTIONS=$2
   TIME_STAMP=$3
   DATA_PATH=$4
-  array=($(psql -d ${DATABASE} -At --field-separator '.' -c "SELECT table_schema,table_name FROM information_schema.tables
+  array=($(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -d ${DATABASE} -At --field-separator '.' -c "SELECT table_schema,table_name FROM information_schema.tables
 where table_schema not in ('information_schema','pg_catalog','topology') and table_name
 not in ('raster_columns','raster_overviews','spatial_ref_sys', 'geography_columns', 'geometry_columns')
 ORDER BY table_schema,table_name;"))
   for i in "${array[@]}"; do
     #TODO split the variable i to get the schema and table names separately so that we can quote them to avoid weird table
     # names and schema names
-    pg_dump -d ${DATABASE} ${DATABASE_DUMP_OPTIONS} -t $i >$DATA_PATH/${DATABASE}_${i}_${TIME_STAMP}.dmp
+    PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} -d ${DATABASE} ${DATABASE_DUMP_OPTIONS} -t $i >$DATA_PATH/${DATABASE}_${i}_${TIME_STAMP}.dmp
   done
 }
 
@@ -135,3 +138,4 @@ function cron_config() {
   fi
 
 }
+
