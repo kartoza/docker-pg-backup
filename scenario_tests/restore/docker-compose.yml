@@ -40,7 +40,7 @@ services:
       - ARCHIVE_FILENAME=latest
       - DUMP_ARGS="-Fc -n public"
       - WITH_POSTGIS=1
-      - CRON_SCHEDULE=*/1 * * * *
+      - CRON_SCHEDULE="*/1 * * * *"
     depends_on:
       pg_backup:
         condition: service_healthy

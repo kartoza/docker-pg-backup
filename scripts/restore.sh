@@ -27,7 +27,7 @@ if [ -z "${WITH_POSTGIS:-}" ]; then
 else
 	echo "Recreate target DB with POSTGIS"
 	PGPASSWORD=${POSTGRES_PASS} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER}  ${TARGET_DB}
-	psql -c 'CREATE EXTENSION IF NOT EXISTS postgis;' ${TARGET_DB}
+	PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -c 'CREATE EXTENSION IF NOT EXISTS postgis;' ${TARGET_DB}
 fi
 
 echo "Restoring dump file"
