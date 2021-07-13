@@ -135,7 +135,6 @@ function cron_config() {
     else
       # default value
       envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
-      
     fi
   fi
 
