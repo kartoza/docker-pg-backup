@@ -49,8 +49,11 @@ cd docker-pg-backup
 To create a running container do:
 
 ```
-docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:13-3.1
-docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d kartoza/pg-backup:13-3.1
+POSTGRES_MAJOR_VERSION=13
+POSTGIS_MAJOR_VERSION=3
+POSTGIS_MINOR_RELEASE=1 
+docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
 ```
 
 ## Specifying environment variables
@@ -70,7 +73,7 @@ username and password etc for the database connection.
   [PostgreSQL Dump options](https://www.postgresql.org/docs/13/app-pgdump.html).
 * `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/13/app-pgrestore.html) 
 * `STORAGE_BACKEND` The default backend is to store the backup files. It can either
-  be `FILE` or `S3`(.ie minio or amazon bucket) backends. 
+  be `FILE` or `S3`(Example minio or amazon bucket) backends. 
 * `DB_TABLES` A boolean variable to specify if the user wants to dump the DB as individual tables. 
   Defaults to `No`
 * `CRON_SCHEDULE` specifies the cron schedule when the backup needs to run. Defaults to midnight daily.
@@ -117,17 +120,26 @@ The script uses [s3cmd](https://s3tools.org/s3cmd) for backing up files to S3 bu
 * `SSL_SECURE` The determines if the S3 bucket is 
 * `BUCKET` Indicates the bucket name that will be created.
 
-You can also mount the `s3cfg` or `backups-cron` configuration file as 
+You can read more about configuration options for [s3cmd](https://s3tools.org/s3cmd-howto)
+
+For a typical usage of this look at the [docker-compose-s3.yml](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose-s3.yml)
+
+## Mounting Configs
+
+The image supports mounting the following configs:
+* s3cfg when backing to `S3` backend
+* backup-cron for any custom configuration you need to specify in the file.
+
+An environment variable `${EXTRA_CONFIG_DIR}` controls the location of the folder.
+
+If you need to mount [s3cfg](https://gist.github.com/greyhoundforty/a4a9d80a942d22a8a7bf838f7abbcab2) file. You can
+run the following:
 
 ```
 -e ${EXTRA_CONFIG_DIR}=/settings
 -v /data:/settings
 ```
 Where `s3cfg` is located in `/data`
-
-You can read more about configuration options for [s3cmd](https://s3tools.org/s3cmd-howto)
-
-For a typical usage of this look at the [docker-compose-s3.yml](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose-s3.yml)
 
 ## Restoring
 
@@ -138,7 +150,7 @@ You need to specify some environment variables first:
  * `WITH_POSTGIS` Kartoza specific, to generate POSTGIS extension along with the restore process
  * `TARGET_ARCHIVE` The full path of the archive to restore
 
-**NB:** The restore script will try to delete the `TARGET_DB` if it matches an existing database, 
+**Note:** The restore script will try to delete the `TARGET_DB` if it matches an existing database, 
 so make sure you know what you are doing. 
 Then it will create a new one and restore the content from `TARGET_ARCHIVE`
 

@@ -2,6 +2,7 @@
 
 source /backup-scripts/env-data.sh
 
+mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 # Copy settings for cron file
 export CRON_SCHEDULE
 cron_config

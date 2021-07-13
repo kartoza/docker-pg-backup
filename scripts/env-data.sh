@@ -53,10 +53,6 @@ if [ -z "${POSTGRES_HOST}" ]; then
   POSTGRES_HOST=db
 fi
 
-if [ -z "${POSTGRES_DBNAME}" ]; then
-  POSTGRES_DBNAME=gis
-fi
-
 if [ -z "${DUMPPREFIX}" ]; then
   DUMPPREFIX=PG
 fi
@@ -76,7 +72,7 @@ fi
 
 # How old can files and dirs be before getting trashed? In minutes
 if [ -z "${DBLIST}" ]; then
-  DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
+  DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql -h ${POSTGRES_HOST} -p 5432 -U ${POSTGRES_USER} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
 fi
 
 
