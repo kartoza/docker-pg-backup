@@ -31,10 +31,10 @@ if [ -z "${SSL_SECURE}" ]; then
 	SSL_SECURE=True
 fi
 if [ -z "${DUMP_ARGS}" ]; then
-	 DUMP_ARGS="-Fc"
+	 DUMP_ARGS='-Fc'
 fi
 if [ -z "${RESTORE_ARGS}" ]; then
-	RESTORE_ARGS="-j 4"
+	RESTORE_ARGS='-j 4'
 fi
 
 if [ -z "${POSTGRES_USER}" ]; then

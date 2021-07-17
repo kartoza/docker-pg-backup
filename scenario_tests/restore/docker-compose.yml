@@ -13,7 +13,7 @@ services:
     volumes:
       - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
     environment:
-      - POSTGRES_DB=gis
+      - POSTGRES_DB=gis,data
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
     healthcheck:
@@ -35,12 +35,10 @@ services:
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - TARGET_DB=gis_restore
+      - TARGET_DB=data
       - TARGET_ARCHIVE=/backups/latest.gis.dmp
-      - ARCHIVE_FILENAME=latest
-      - DUMP_ARGS="-Fc -n public"
       - WITH_POSTGIS=1
-      - CRON_SCHEDULE="*/1 * * * *"
+      - ARCHIVE_FILENAME=latest
     depends_on:
       pg_backup:
         condition: service_healthy

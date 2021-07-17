@@ -43,7 +43,7 @@ for DB in ${DBLIST}; do
   fi
   if [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
     if [ -z "${DB_TABLES:-}" ]; then
-      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -f ${FILENAME} ${DB}
+      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS}  -d ${DB} > ${FILENAME}
     else
       dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
     fi
@@ -51,7 +51,7 @@ for DB in ${DBLIST}; do
   elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
     if [ -z "${DB_TABLES:-}" ]; then
       echo "Backing up $FILENAME to s3://${BUCKET}/" >>/var/log/cron.log
-      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} ${DB} -f ${FILENAME}
+      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}
       gzip $FILENAME
       s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
       echo "Backing up $FILENAME done" >>/var/log/cron.log
