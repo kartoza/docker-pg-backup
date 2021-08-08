@@ -43,7 +43,7 @@ fi
 
 # How old can files and dirs be before getting trashed? In minutes
 if [ -z "${DBLIST}" ]; then
-  DBLIST=`PGPASSWORD=${POSTGRES_PASS} psql -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}'`
+  DBLIST=`PGPASSWORD=${POSTGRES_PASS} psql -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}'`
 fi
 
 # Now write these all to case file that can be sourced
