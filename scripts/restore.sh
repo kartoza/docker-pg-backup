@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /pgenv.sh
+source /backup-scripts/env-data.sh
 
 echo "TARGET_DB: ${TARGET_DB}"
 echo "WITH_POSTGIS: ${WITH_POSTGIS}"
@@ -18,19 +18,19 @@ fi
 
 
 echo "Dropping target DB"
-dropdb --if-exists ${TARGET_DB}
+PGPASSWORD=${POSTGRES_PASS} dropdb ${PG_CONN_PARAMETERS} --if-exists ${TARGET_DB}
 
 
 if [ -z "${WITH_POSTGIS:-}" ]; then
 	echo "Recreate target DB without POSTGIS"
-	createdb -O ${PGUSER} ${TARGET_DB}
+	PGPASSWORD=${POSTGRES_PASS} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER} ${TARGET_DB}
 else
 	echo "Recreate target DB with POSTGIS"
-	createdb -O ${PGUSER}  ${TARGET_DB}
-	psql -c 'CREATE EXTENSION IF NOT EXISTS postgis;' ${TARGET_DB}
+	PGPASSWORD=${POSTGRES_PASS} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER}  ${TARGET_DB}
+	PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -c 'CREATE EXTENSION IF NOT EXISTS postgis;' ${TARGET_DB}
 fi
 
 echo "Restoring dump file"
 # Only works if the cluster is different- all the credentials are the same
 #psql -f /backups/globals.sql ${TARGET_DB}
-pg_restore ${TARGET_ARCHIVE}  -d ${TARGET_DB} ${RESTORE_ARGS}
+PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} ${TARGET_ARCHIVE}  -d ${TARGET_DB} ${RESTORE_ARGS}

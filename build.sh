@@ -1,3 +1,8 @@
-#!/bin/bash
-docker build -t kartoza/pg-backup:manual-build .
-docker build -t kartoza/pg-backup:13.0 .
+#!/usr/bin/env bash
+
+if [[ ! -f .env ]]; then
+    echo "Default build arguments don't exists. Creating one from default value."
+    cp .example.env .env
+fi
+
+docker-compose -f docker-compose.build.yml build postgis-backup-prod

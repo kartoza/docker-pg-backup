@@ -6,7 +6,7 @@ volumes:
 
 services:
   db:
-    image: kartoza/postgis:13.0
+    image: kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
     volumes:
       - db-data:/var/lib/postgresql
     environment:
@@ -20,7 +20,7 @@ services:
       test: "exit 0"
 
   dbbackups:
-    image: kartoza/pg-backup:13.0
+    image: kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
     environment:
       - DUMPPREFIX=PG_gis
       - POSTGRES_HOST=db

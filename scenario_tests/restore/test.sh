@@ -10,7 +10,7 @@ docker-compose up -d
 
 sleep 120
 
-# Restore DB backup
+# Backup DB
 docker-compose exec pg_restore  /backup-scripts/backups.sh
 
 # Restore DB backup
