@@ -1,5 +1,15 @@
-# Docker PG Backup
+# Table of Contents
+* [Docker PG Backup](#docker-pg-backup)
+   * [Getting the image](#getting-the-image)
+   * [Running the image](#running-the-image)
+   * [Specifying environment variables](#specifying-environment-variables)
+       * [Filename format](#filename-format)
+   * [Backing up to S3 bucket](#backing-up-to-s3-bucket)
+   * [Mounting Configs](#mounting-configs)
+   * [Restoring](#restoring)
+   * [Credits](#credits)
 
+# Docker PG Backup
 
 A simple docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
 It is primarily intended to be used with our [docker postgis](https://github.com/kartoza/docker-postgis)
@@ -43,7 +53,7 @@ cd docker-pg-backup
 ./build.sh # It will build the latest version corresponding the latest PostgreSQL version
 ```
 
-## Run
+## Running the image
 
 
 To create a running container do:
@@ -85,7 +95,7 @@ or ${CRON_SCHEDULE}="*/1 * * * *"
 Here is a more typical example using [docker-composer](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose.yml):
 
 
-## Filename format
+### Filename format
 
 The default backup archive generated will be stored in the `/backups` directory (inside the container):
 
@@ -109,7 +119,7 @@ The backup archive would be something like
 /backups/latest.gis.dmp
 ```
 
-# Backing up to S3 bucket
+## Backing up to S3 bucket
 The script uses [s3cmd](https://s3tools.org/s3cmd) for backing up files to S3 bucket.
 
 * `ACCESS_KEY_ID` Access key for the bucket
