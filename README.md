@@ -173,7 +173,7 @@ i.e if your original database is named `gis`, you can restore it into a new data
  then you can execute a restore process like this:
 
  ```
- docker-compose exec dbbackup /backup-scripts/restore.sh
+ docker-compose exec dbbackups /backup-scripts/restore.sh
  ```
 
 ## Credits
