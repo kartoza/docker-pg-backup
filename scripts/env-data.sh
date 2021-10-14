@@ -2,6 +2,25 @@
 
 DEFAULT_EXTRA_CONF_DIR="/settings"
 
+function file_env {
+	local var="$1"
+	local fileVar="${var}_FILE"
+	local def="${2:-}"
+	if [ "${!var:-}" ] && [ "${!fileVar:-}" ]; then
+		echo >&2 "error: both $var and $fileVar are set (but are exclusive)"
+		exit 1
+	fi
+	local val="$def"
+	if [ "${!var:-}" ]; then
+		val="${!var}"
+	elif [ "${!fileVar:-}" ]; then
+		val="$(< "${!fileVar}")"
+	fi
+	export "$var"="$val"
+	unset "$fileVar"
+}
+
+
 if [ -z "${EXTRA_CONF_DIR}" ]; then
   EXTRA_CONF_DIR=${DEFAULT_EXTRA_CONF_DIR}
 fi
@@ -9,21 +28,29 @@ fi
 if [ -z "${STORAGE_BACKEND}" ]; then
 	STORAGE_BACKEND="FILE"
 fi
+
+file_env 'ACCESS_KEY_ID'
+
 if [ -z "${ACCESS_KEY_ID}" ]; then
 	ACCESS_KEY_ID=
 fi
+
+file_env 'SECRET_ACCESS_KEY'
 if [ -z "${SECRET_ACCESS_KEY}" ]; then
 	SECRET_ACCESS_KEY=
 fi
 if [ -z "${DEFAULT_REGION}" ]; then
 	DEFAULT_REGION=us-west-2
 fi
+
 if [ -z "${BUCKET}" ]; then
 	BUCKET=backups
 fi
+file_env 'HOST_BASE'
 if [ -z "${HOST_BASE}" ]; then
 	HOST_BASE=
 fi
+
 if [ -z "${HOST_BUCKET}" ]; then
 	HOST_BUCKET=
 fi
@@ -37,10 +64,11 @@ if [ -z "${RESTORE_ARGS}" ]; then
 	RESTORE_ARGS='-j 4'
 fi
 
+file_env 'POSTGRES_USER'
 if [ -z "${POSTGRES_USER}" ]; then
   POSTGRES_USER=docker
 fi
-
+file_env 'POSTGRES_PASS'
 if [ -z "${POSTGRES_PASS}" ]; then
   POSTGRES_PASS=docker
 fi
