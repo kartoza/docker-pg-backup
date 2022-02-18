@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /backup-scripts/env-data.sh
+source /backup-scripts/pgenv.sh
 
 #echo "Running with these environment options" >> /var/log/cron.log
 #set | grep PG >> /var/log/cron.log
