@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /backup-scripts/env-data.sh
+source /backup-scripts/pgenv.sh
 
 echo "TARGET_DB: ${TARGET_DB}"
 echo "WITH_POSTGIS: ${WITH_POSTGIS}"

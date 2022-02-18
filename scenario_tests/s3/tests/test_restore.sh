@@ -2,8 +2,7 @@
 
 set -e
 
-source /scripts/env-data.sh
-source /pgenv.sh
+/backup-scripts/pgenv.sh
 # execute tests
 pushd /tests
 
