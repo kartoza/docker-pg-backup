@@ -1,3 +1,4 @@
+[default]
 host_base = ${HOST_BASE}
 host_bucket = ${HOST_BUCKET}
 bucket_location = ${DEFAULT_REGION}
