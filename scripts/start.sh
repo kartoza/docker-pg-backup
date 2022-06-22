@@ -126,6 +126,7 @@ mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 cron_config
 
 echo "
+export PATH=\"${PATH}\"
 export EXTRA_CONF_DIR=\"${EXTRA_CONF_DIR}\"
 export STORAGE_BACKEND=\"${STORAGE_BACKEND}\"
 export ACCESS_KEY_ID=\"${ACCESS_KEY_ID}\"
