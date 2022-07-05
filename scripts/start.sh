@@ -100,6 +100,10 @@ fi
 
 # How old can files and dirs be before getting trashed? In minutes
 if [ -z "${DBLIST}" ]; then
+
+  until PGPASSWORD=${POSTGRES_PASS} pg_isready ${PG_CONN_PARAMETERS}; do
+    sleep 1
+  done
   DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
 fi
 
@@ -125,6 +129,7 @@ mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 
 cron_config
 
+function configure_env_variables() {
 echo "
 export PATH=\"${PATH}\"
 export EXTRA_CONF_DIR=\"${EXTRA_CONF_DIR}\"
@@ -151,6 +156,8 @@ export DBLIST=\"${DBLIST}\"
 echo "Start script running with these environment options"
 set | grep PG
 
+}
+configure_env_variables
 # Fix variables not interpolated
 sed -i "s/'//g" /backup-scripts/backups-cron
 sed -i 's/\"//g' /backup-scripts/backups-cron
