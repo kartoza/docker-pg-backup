@@ -49,66 +49,66 @@ ORDER BY table_schema,table_name;"))
   done
 }
 
-
+# Env variables
 MYDATE=$(date +%d-%B-%Y)
 MONTH=$(date +%B)
 YEAR=$(date +%Y)
-
 MYBASEDIR=/${BUCKET}
 MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
 mkdir -p ${MYBACKUPDIR}
-cd ${MYBACKUPDIR}
+pushd ${MYBACKUPDIR} || exit
+
+function backup_db() {
+  EXTRA_PARAMS=''
+  if [ -n "$1" ]; then
+    EXTRA_PARAMS=$1
+  fi
+  for DB in ${DBLIST}; do
+    if [ -z "${ARCHIVE_FILENAME:-}" ]; then
+      export FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
+    else
+      export FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
+    fi
+    echo "Backing up $DB" >>/var/log/cron.log
+    if [ -z "${DB_TABLES:-}" ]; then
+      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}
+      echo "Backing up $FILENAME done" >>/var/log/cron.log
+      if [[ ${STORAGE_BACKEND} == "S3" ]]; then
+        gzip $FILENAME
+        echo "Backing up $FILENAME to s3://${BUCKET}/" >>/var/log/cron.log
+        ${EXTRA_PARAMS}
+        rm ${MYBACKUPDIR}/*.dmp.gz
+      fi
+    else
+      dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
+      if [[ ${STORAGE_BACKEND} == "S3" ]]; then
+        ${EXTRA_PARAMS}
+        rm ${MYBACKUPDIR}/*
+      fi
+    fi
+  done
+
+}
 
 
 if [[ ${STORAGE_BACKEND} == "S3" ]]; then
   s3_config
   s3cmd mb s3://${BUCKET}
+  # Backup globals Always get the latest
+  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
+  echo "Sync globals.sql to ${BUCKET} bucket  " >>/var/log/cron.log
+  backup_db "s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/"
+
+elif [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
+  # Backup globals Always get the latest
+  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only -f ${MYBASEDIR}/globals.sql
+  # Loop through each pg database backing it up
+  backup_db ""
+
 fi
 
 echo "Backup running to $MYBACKUPDIR" >>/var/log/cron.log
 
-# Backup globals Always get the latest
-
-if [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
-  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only -f ${MYBASEDIR}/globals.sql
-elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
-  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
-  echo "Sync globals.sql to ${BUCKET} bucket  " >>/var/log/cron.log
-fi
-
-# Loop through each pg database backing it up
-
-for DB in ${DBLIST}; do
-  echo "Backing up $DB" >>/var/log/cron.log
-  if [ -z "${ARCHIVE_FILENAME:-}" ]; then
-    FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
-  else
-    FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
-  fi
-  if [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
-    if [ -z "${DB_TABLES:-}" ]; then
-      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS}  -d ${DB} > ${FILENAME}
-    else
-      dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
-    fi
-    echo "Backing up $FILENAME" >>/var/log/cron.log
-  elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
-    if [ -z "${DB_TABLES:-}" ]; then
-      echo "Backing up $FILENAME to s3://${BUCKET}/" >>/var/log/cron.log
-      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}
-      gzip $FILENAME
-      s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
-      echo "Backing up $FILENAME done" >>/var/log/cron.log
-      rm ${MYBACKUPDIR}/*
-    else
-      dump_tables ${DB} ${DUMP_ARGS} ${MYDATE} ${MYBACKUPDIR}
-      s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/
-      rm ${MYBACKUPDIR}/*
-    fi
-
-  fi
-
-done
 
 if [ "${REMOVE_BEFORE:-}" ]; then
   TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))

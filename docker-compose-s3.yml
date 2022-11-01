@@ -3,6 +3,7 @@ version: '2.1'
 
 volumes:
   db-data:
+  minio_data:
 
 services:
   db:
@@ -19,23 +20,42 @@ services:
     healthcheck:
       test: "exit 0"
 
+  minio:
+    image: quay.io/minio/minio
+    environment:
+      - MINIO_ROOT_USER=minio_admin
+      - MINIO_ROOT_PASSWORD=secure_minio_secret
+    entrypoint: /bin/bash
+    command: -c 'minio server /data --console-address ":9001"'
+    volumes:
+      - minio_data:/mapproxy
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: curl --fail -s http://localhost:9000/ || exit 1
+
+
   dbbackups:
     image: kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
     environment:
-      - DUMPPREFIX=PG_gis
+      - DUMPPREFIX=PG
       - POSTGRES_HOST=db
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - STORAGE_BACKEND="S3"
-      - ACCESS_KEY_ID=
-      - SECRET_ACCESS_KEY=
+      - STORAGE_BACKEND=S3
+      - ACCESS_KEY_ID=minio_admin
+      - SECRET_ACCESS_KEY=secure_minio_secret
       - DEFAULT_REGION=us-west-2
       - BUCKET=backups
-      - HOST_BASE=
-      - HOST_BUCKET=
-      - SSL_SECURE=True
+      - HOST_BASE=minio:9000
+      - HOST_BUCKET=backup
+      - SSL_SECURE=False
+      - CRON_SCHEDULE="*/5 * * * *"
     restart: on-failure
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started

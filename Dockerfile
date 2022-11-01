@@ -1,16 +1,16 @@
 ##############################################################################
 # Production Stage                                                           #
 ##############################################################################
-ARG POSTGRES_MAJOR_VERSION=14
+ARG POSTGRES_MAJOR_VERSION=15
 ARG POSTGIS_MAJOR_VERSION=3
-ARG POSTGIS_MINOR_RELEASE=1
+ARG POSTGIS_MINOR_RELEASE=3
 
 FROM kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE} AS postgis-backup-production
 
 RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip vim  gettext \
     && apt-get -y --purge autoremove && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-RUN pip3 install s3cmd
+RUN pip3 install s3cmd python-magic
 RUN touch /var/log/cron.log
 
 ENV \
