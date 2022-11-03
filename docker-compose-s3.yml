@@ -52,7 +52,7 @@ services:
       - HOST_BASE=minio:9000
       - HOST_BUCKET=backup
       - SSL_SECURE=False
-      - CRON_SCHEDULE="*/5 * * * *"
+      #- CRON_SCHEDULE="*/5 * * * *"
     restart: on-failure
     depends_on:
       db:
