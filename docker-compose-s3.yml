@@ -18,7 +18,7 @@ services:
       - POSTGRES_MULTIPLE_EXTENSIONS=postgis,hstore,postgis_topology,postgis_raster,pgrouting
     restart: on-failure
     healthcheck:
-      test: "exit 0"
+      test: "PGPASSWORD=${POSTGRES_PASS} pg_isready -h 127.0.0.1 -U docker -d gis"
 
   minio:
     image: quay.io/minio/minio
