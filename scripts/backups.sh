@@ -19,18 +19,22 @@ function s3_config() {
 function clean_s3bucket() {
   S3_BUCKET=$1
   DEL_DAYS=$2
-  s3cmd ls s3://${S3_BUCKET} --recursive | while read -r line; do
-    createDate=$(echo $line | awk {'print ${S3_BUCKET}" "${DEL_DAYS}'})
-    createDate=$(date -d"$createDate" +%s)
-    olderThan=$(date -d"-${S3_BUCKET}" +%s)
-    if [[ $createDate -lt $olderThan ]]; then
-      fileName=$(echo $line | awk {'print $4'})
-      echo $fileName
-      if [[ $fileName != "" ]]; then
-        s3cmd del "$fileName"
+  if [[ $(s3cmd ls s3://${BUCKET} 2>&1 | grep -q 'NoSuchBucket' ) ]];then
+    echo "buckets empty , no cleaning needed"
+  else
+    s3cmd ls s3://${S3_BUCKET} --recursive | while read -r line; do
+      createDate=$(echo $line | awk {'print $1" "$2'})
+      createDate=$(date -d"$createDate" +%s)
+      olderThan=$(date -d"-$2" +%s)
+      if [[ $createDate -lt $olderThan ]]; then
+        fileName=$(echo $line | awk {'print $4'})
+        echo $fileName
+        if [[ $fileName != "" ]]; then
+          s3cmd del "$fileName"
+        fi
       fi
-    fi
-  done
+    done
+  fi
 }
 
 function dump_tables() {
@@ -43,9 +47,12 @@ where table_schema not in ('information_schema','pg_catalog','topology') and tab
 not in ('raster_columns','raster_overviews','spatial_ref_sys', 'geography_columns', 'geometry_columns')
 ORDER BY table_schema,table_name;"))
   for i in "${array[@]}"; do
-    #TODO split the variable i to get the schema and table names separately so that we can quote them to avoid weird table
+    IFS='.'
+    read -a strarr <<< "$i"
+    SCHEMA_NAME="${strarr[0]}"
+    TABLE_NAME="${strarr[1]}"
     # names and schema names
-    PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} -d ${DATABASE} ${DATABASE_DUMP_OPTIONS} -t $i >$DATA_PATH/${DATABASE}_${i}_${TIME_STAMP}.dmp
+    PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} -d ${DATABASE} ${DATABASE_DUMP_OPTIONS} -t ${SCHEMA_NAME}."${TABLE_NAME}" >$DATA_PATH/${DATABASE}_${SCHEMA_NAME}_"${TABLE_NAME}"_${TIME_STAMP}.dmp
   done
 }
 
@@ -93,7 +100,9 @@ function backup_db() {
 
 if [[ ${STORAGE_BACKEND} == "S3" ]]; then
   s3_config
-  s3cmd mb s3://${BUCKET}
+  if [[ $(s3cmd ls s3://${BUCKET} 2>&1 | grep -q 'NoSuchBucket' ) ]];then
+    s3cmd mb s3://${BUCKET}
+  fi
   # Backup globals Always get the latest
   PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
   echo "Sync globals.sql to ${BUCKET} bucket  " >>/var/log/cron.log
