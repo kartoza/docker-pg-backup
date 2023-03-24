@@ -176,6 +176,18 @@ i.e if your original database is named `gis`, you can restore it into a new data
  docker-compose exec dbbackups /backup-scripts/restore.sh
  ```
 
+## Restoring from S3 bucket
+The script uses [s3cmd](https://s3tools.org/s3cmd) for restoring files S3 bucket to a postgresql database.
+
+To restore from S3 bucket, first you have to exec into your running container. You have to launch the /backup-scripts/restore.sh with two parameters 
+- the first parameter is the target date that you want to restore: ex "2023-03-24" for the 24th March 2023.
+- the second parameter is for the database name you want your backup to be restored: ex "vaultdb"
+
+You can read more about configuration options for [s3cmd](https://s3tools.org/s3cmd-howto)
+
+For a typical usage of this look at the [docker-compose-s3.yml](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose-s3.yml)
+
+
 ## Credits
 
 Tim Sutton (tim@kartoza.com)
