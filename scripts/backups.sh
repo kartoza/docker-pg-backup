@@ -17,15 +17,15 @@ function s3_config() {
 
 # Cleanup S3 bucket
 function clean_s3bucket() {
-  S3_BUCKET=$1
-  DEL_DAYS=$2
+  S3_BUCKET="$1"
+  DEL_DAYS="$2"
   if [[ $(s3cmd ls s3://${BUCKET} 2>&1 | grep -q 'NoSuchBucket' ) ]];then
     echo "buckets empty , no cleaning needed"
   else
     s3cmd ls s3://${S3_BUCKET} --recursive | while read -r line; do
-      createDate=$(echo $line | awk {'print $1" "$2'})
+      createDate=$(echo $line | awk {'print $1'})
       createDate=$(date -d"$createDate" +%s)
-      olderThan=$(date -d"-$2" +%s)
+      olderThan=$(date -d"$DEL_DAYS ago" +%s)
       if [[ $createDate -lt $olderThan ]]; then
         fileName=$(echo $line | awk {'print $4'})
         echo $fileName
