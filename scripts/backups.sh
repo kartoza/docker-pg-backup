@@ -1,6 +1,5 @@
 #!/bin/bash
-source /backup-scripts/start.sh
-configure_env_variables
+
 source /backup-scripts/pgenv.sh
 
 function s3_config() {
