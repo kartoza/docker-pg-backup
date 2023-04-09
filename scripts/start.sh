@@ -107,6 +107,21 @@ if [ -z "${DBLIST}" ]; then
   DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
 fi
 
+if [ -z "${RUN_ONCE}" ]; then
+  RUN_ONCE=FALSE
+fi
+
+if [ -z "${DB_DUMP_ENCRYPTION}" ]; then
+  DB_DUMP_ENCRYPTION=FALSE
+fi
+
+if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
+  STRING_LENGTH=30
+  random_pass_string=$(cat /dev/urandom | tr -dc '[:alnum:]' | head -c "${STRING_LENGTH}")
+  DB_DUMP_ENCRYPTION_PASS_PHRASE=${random_pass_string}
+fi
+
+
 function cron_config() {
   if [[ ! -f /backup-scripts/backups-cron ]]; then
     # If it doesn't exists, copy from ${EXTRA_CONF_DIR} directory if exists
@@ -124,11 +139,11 @@ function cron_config() {
 
 }
 
+
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 # Copy settings for cron file
 
 cron_config
-
 function configure_env_variables() {
 echo "
 export PATH=\"${PATH}\"
@@ -150,6 +165,9 @@ export POSTGRES_HOST=\"${POSTGRES_HOST}\"
 export DUMPPREFIX=\"${DUMPPREFIX}\"
 export ARCHIVE_FILENAME=\"${ARCHIVE_FILENAME}\"
 export REMOVE_BEFORE="${REMOVE_BEFORE}"
+export RUN_ONCE="${RUN_ONCE}"
+DB_DUMP_ENCRYPTION_PASS_PHRASE=\"${DB_DUMP_ENCRYPTION_PASS_PHRASE}\"
+DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
 export PG_CONN_PARAMETERS=\"${PG_CONN_PARAMETERS}\"
 export DBLIST=\"${DBLIST}\"
  " > /backup-scripts/pgenv.sh
@@ -163,6 +181,12 @@ sed -i "s/'//g" /backup-scripts/backups-cron
 sed -i 's/\"//g' /backup-scripts/backups-cron
 
 # Setup cron job
-crontab /backup-scripts/backups-cron
+if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]];then
+  /backup-scripts/backups.sh
+else
+  crontab /backup-scripts/backups-cron
 
-cron -f
+  cron -f
+
+fi
+

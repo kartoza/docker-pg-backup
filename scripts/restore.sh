@@ -36,7 +36,12 @@ function s3_restore() {
 			echo "delete target DB with if its exists and recreate it"
 			PGPASSWORD=${POSTGRES_PASS} dropdb ${PG_CONN_PARAMETERS} --force --if-exists ${2}
 			PGPASSWORD=${POSTGRES_PASS} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER} ${2}
-			PGPASSWORD=${POSTGRES_PASS} pg_restore -h $POSTGRES_HOST -p $POSTGRES_PORT -U $POSTGRES_USER -d $2 /data/dump/$2.dmp
+			 if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
+			  openssl enc -d -aes-256-cbc -pass pass:DB_DUMP_ENCRYPTION_PASS_PHRASE -pbkdf2 -iter 10000 -md sha256 -in /data/dump/$2.dmp -out /tmp/decrypted.dump.gz | PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump.gz  -d $2 ${RESTORE_ARGS}
+			  rm -r /tmp/decrypted.dump.gz
+			else
+			  PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} /data/dump/$2.dmp  -d $2 ${RESTORE_ARGS}
+			fi
 		fi
 	fi
 }
@@ -73,7 +78,13 @@ function file_restore() {
 	echo "Restoring dump file"
 	# Only works if the cluster is different- all the credentials are the same
 	#psql -f /backups/globals.sql ${TARGET_DB}
-	PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} ${TARGET_ARCHIVE}  -d ${TARGET_DB} ${RESTORE_ARGS}
+	if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
+	  openssl enc -d -aes-256-cbc -pass pass:DB_DUMP_ENCRYPTION_PASS_PHRASE -pbkdf2 -iter 10000 -md sha256 -in ${TARGET_ARCHIVE} -out /tmp/decrypted.dump.gz | PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump.gz  -d ${TARGET_DB} ${RESTORE_ARGS}
+	  rm /tmp/decrypted.dump.gz
+	else
+	  PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} ${TARGET_ARCHIVE}  -d ${TARGET_DB} ${RESTORE_ARGS}
+	fi
+
 }
 
 if [[ ${STORAGE_BACKEND} == "S3" ]]; then
