@@ -52,7 +52,12 @@ ORDER BY table_schema,table_name;"))
     SCHEMA_NAME="${strarr[0]}"
     TABLE_NAME="${strarr[1]}"
     # names and schema names
-    PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} -d ${DATABASE} ${DATABASE_DUMP_OPTIONS} -t ${SCHEMA_NAME}."${TABLE_NAME}" >$DATA_PATH/${DATABASE}_${SCHEMA_NAME}_"${TABLE_NAME}"_${TIME_STAMP}.dmp
+    if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
+        PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} -d ${DATABASE} ${DATABASE_DUMP_OPTIONS} -t ${SCHEMA_NAME}."${TABLE_NAME}" | openssl enc -aes-256-cbc -pass pass:DB_DUMP_ENCRYPTION_PASS_PHRASE -pbkdf2 -iter 10000 -md sha256 -out $DATA_PATH/${DATABASE}_${SCHEMA_NAME}_"${TABLE_NAME}"_${TIME_STAMP}.dmp
+    else
+        PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} -d ${DATABASE} ${DATABASE_DUMP_OPTIONS} -t ${SCHEMA_NAME}."${TABLE_NAME}" >$DATA_PATH/${DATABASE}_${SCHEMA_NAME}_"${TABLE_NAME}"_${TIME_STAMP}.dmp
+
+    fi
   done
 }
 
@@ -78,7 +83,11 @@ function backup_db() {
     fi
     echo "Backing up $DB" >>/var/log/cron.log
     if [ -z "${DB_TABLES:-}" ]; then
-      PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}
+      if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
+        PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} | openssl enc -aes-256-cbc -pass pass:DB_DUMP_ENCRYPTION_PASS_PHRASE -pbkdf2 -iter 10000 -md sha256 -out ${FILENAME}
+      else
+        PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}
+      fi
       echo "Backing up $FILENAME done" >>/var/log/cron.log
       if [[ ${STORAGE_BACKEND} == "S3" ]]; then
         gzip $FILENAME

@@ -25,12 +25,13 @@ services:
     volumes:
       - db-backups:/backups
     environment:
-      - DUMPPREFIX=PG_gis
+      - DUMPPREFIX=PG
       - POSTGRES_HOST=db
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
       #- CRON_SCHEDULE="*/5 * * * *"
+      #- DB_DUMP_ENCRYPTION=true
     restart: on-failure
     depends_on:
       db:

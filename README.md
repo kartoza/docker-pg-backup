@@ -7,8 +7,10 @@
    * [Backing up to S3 bucket](#backing-up-to-s3-bucket)
    * [Mounting Configs](#mounting-configs)
    * [Restoring](#restoring)
+       * [Restore from file based backups](#restore-from-file-based-backups)
+       * [Restoring from S3 bucket](#restoring-from-s3-bucket)
    * [Credits](#credits)
-
+  
 # Docker PG Backup
 
 A simple docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
@@ -41,7 +43,7 @@ POSTGIS_MINOR_RELEASE=1
 ```
 
 We highly suggest that you use a tagged image that match the PostgreSQL image you are running i.e
-(kartoza/pg-backup:13-3.1 for backing up kartoza/postgis:13-3.1 DB). The
+(kartoza/pg-backup:15-3.3 for backing up kartoza/postgis:15-3.3 DB). The
 latest tag  may change and may not successfully back up your database. 
 
 
@@ -59,9 +61,9 @@ cd docker-pg-backup
 To create a running container do:
 
 ```
-POSTGRES_MAJOR_VERSION=13
+POSTGRES_MAJOR_VERSION=15
 POSTGIS_MAJOR_VERSION=3
-POSTGIS_MINOR_RELEASE=1 
+POSTGIS_MINOR_RELEASE=3 
 docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
 docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
 ```
@@ -76,9 +78,12 @@ username and password etc for the database connection.
 * `POSTGRES_PASS` if not set, defaults to : docker
 * `POSTGRES_PORT` if not set, defaults to : 5432
 * `POSTGRES_HOST` if not set, defaults to : db
-* `ARCHIVE_FILENAME` you can use your specified filename format here, default to empty, which means it will use default filename format.
-* `DBLIST` a space-separated list of databases for backup, e.g. `gis data`. Default is all databases.
-* `REMOVE_BEFORE` remove all old backups older than specified amount of days, e.g. `30` would only keep backup files younger than 30 days. Default: no files are ever removed.
+* `ARCHIVE_FILENAME` you can use your specified filename format here, default to empty, which 
+means it will use default filename format.
+* `DBLIST` a space-separated list of databases for backup, e.g. `gis data`. Default is all 
+databases.
+* `REMOVE_BEFORE` remove all old backups older than specified amount of days, e.g. `30` would 
+only keep backup files younger than 30 days. Default: no files are ever removed.
 * `DUMP_ARGS` The default dump arguments based on official 
   [PostgreSQL Dump options](https://www.postgresql.org/docs/13/app-pgdump.html).
 * `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/13/app-pgrestore.html) 
@@ -86,7 +91,10 @@ username and password etc for the database connection.
   be `FILE` or `S3`(Example minio or amazon bucket) backends. 
 * `DB_TABLES` A boolean variable to specify if the user wants to dump the DB as individual tables. 
   Defaults to `No`
-* `CRON_SCHEDULE` specifies the cron schedule when the backup needs to run. Defaults to midnight daily.
+* `CRON_SCHEDULE` specifies the cron schedule when the backup needs to run. Defaults to 
+midnight daily.
+* `DB_DUMP_ENCRYPTION` boolean value specifying if you need the backups to be encrypted.
+* `RUN_ONCE` useful to run the container as a once off job and exit. Useful in Kubernetes context
 
 **Note** To avoid interpolation issues with the env variable `${CRON_SCHEDULE}` you will
 need to provide the variable as a quoted string i.e ${CRON_SCHEDULE}='*/1 * * * *' 
@@ -97,7 +105,8 @@ Here is a more typical example using [docker-composer](https://github.com/kartoz
 
 ### Filename format
 
-The default backup archive generated will be stored in the `/backups` directory (inside the container):
+The default backup archive generated will be stored in the `/backups` directory 
+(inside the container):
 
 ```
 /backups/$(date +%Y)/$(date +%B)/${DUMPPREFIX}_${DB}.$(date +%d-%B-%Y).dmp
@@ -137,7 +146,7 @@ For a typical usage of this look at the [docker-compose-s3.yml](https://github.c
 ## Mounting Configs
 
 The image supports mounting the following configs:
-* s3cfg when backing to `S3` backend
+* `s3cfg` when backing to `S3` backend
 * backup-cron for any custom configuration you need to specify in the file.
 
 An environment variable `${EXTRA_CONFIG_DIR}` controls the location of the folder.
@@ -153,7 +162,13 @@ Where `s3cfg` is located in `/data`
 
 ## Restoring
 
-The image provides a simple restore script.
+The image provides a simple restore script. There are two ways to restore files based on the
+location of the backup files.
+* Restore from file based backups.
+* Restore from cloud based backups.
+
+### Restore from file based backups
+
 You need to specify some environment variables first:
 
  * `TARGET_DB` The db name to restore
@@ -167,7 +182,8 @@ Then it will create a new one and restore the content from `TARGET_ARCHIVE`
 It is generally a good practice to restore into an empty new database and then manually
 drop and rename the databases. 
 
-i.e if your original database is named `gis`, you can restore it into a new database called `gis_restore`
+i.e. if your original database is named `gis`, you can restore it into a new database called
+`gis_restore`
 
  If you specify these environment variables using docker-compose.yml file,
  then you can execute a restore process like this:
@@ -176,7 +192,7 @@ i.e if your original database is named `gis`, you can restore it into a new data
  docker-compose exec dbbackups /backup-scripts/restore.sh
  ```
 
-## Restoring from S3 bucket
+### Restoring from S3 bucket
 The script uses [s3cmd](https://s3tools.org/s3cmd) for restoring files S3 bucket to a postgresql database.
 
 To restore from S3 bucket, first you have to exec into your running container. You have to launch the /backup-scripts/restore.sh with two parameters 
@@ -195,4 +211,3 @@ Tim Sutton (tim@kartoza.com)
 Admire Nyakudya (admire@kartoza.com)
 
 Rizky Maulana (rizky@kartoza.com)
-July 2021
