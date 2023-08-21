@@ -3,14 +3,14 @@
 ##############################################################################
 ARG POSTGRES_MAJOR_VERSION=15
 ARG POSTGIS_MAJOR_VERSION=3
-ARG POSTGIS_MINOR_RELEASE=3
+ARG POSTGIS_MINOR_RELEASE=4
 
 FROM kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE} AS postgis-backup-production
 
 RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip vim  gettext \
     && apt-get -y --purge autoremove && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-RUN pip3 install s3cmd python-magic
+RUN pip3 install s3cmd python-magic --break-system-packages
 RUN touch /var/log/cron.log
 
 ENV \
@@ -42,4 +42,4 @@ RUN set -eux \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install -r /lib/utils/requirements.txt
+RUN pip3 install -r /lib/utils/requirements.txt --break-system-packages
