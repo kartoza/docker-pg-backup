@@ -18,8 +18,7 @@ on:
     workflows:
       - build-latest
     branches:
-      - develop
-      - upgrade
+      - master
     types:
       - completed
 jobs:

@@ -4,16 +4,10 @@ import os
 import logging
 from datetime import datetime
 
-from utils.utils import DBConnection
-
-
 logger = logging.getLogger(__name__)
 
 
 class TestRestore(unittest.TestCase):
-
-    def setUp(self):
-        self.db = DBConnection()
 
     def test_archive_uploaded(self):
         s3_base_path = f"s3://{os.environ.get('BUCKET')}/"
