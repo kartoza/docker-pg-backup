@@ -8,21 +8,6 @@ class DBConnection:
     def __init__(self):
         self.conn = DBConnection.create_conn()
 
-    def table_exists(self, table_name, table_schema='public'):
-        cur = self.conn.cursor()
-        query = (
-            'select '
-            'exists('
-            'select 1 '
-            'from information_schema.tables '
-            'where table_name = %s and table_schema = %s)')
-        cur.execute(query, (table_name, table_schema))
-        try:
-            row = cur.fetchone()
-            return row[0]
-        except:
-            return False
-
     @staticmethod
     def create_conn():
         """
