@@ -4,11 +4,12 @@ version: '2.1'
 volumes:
   pg-backup-data-dir:
   pg-data-dir:
+  minio_data:
 
 services:
 
   db:
-    image: kartoza/postgis:14-3.1
+    image: kartoza/postgis:15-3.4
     restart: 'always'
     volumes:
       - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
@@ -16,14 +17,30 @@ services:
       - POSTGRES_DB=gis
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
+      - ACTIVATE_CRON=False
     healthcheck:
       interval: 60s
       timeout: 30s
       retries: 3
       test: "pg_isready"
 
+  minio:
+    image: quay.io/minio/minio
+    environment:
+      - MINIO_ROOT_USER=minio_admin
+      - MINIO_ROOT_PASSWORD=secure_minio_secret
+    entrypoint: /bin/bash
+    command: -c 'minio server /data --console-address ":9001"'
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: curl --fail -s http://localhost:9000/ || exit 1
+
   pg_restore:
-    image: kartoza/pg-backup:manual-build
+    image: kartoza/pg-backup:${TAG:-manual-build}
     restart: 'always'
     volumes:
       - pg-backup-data-dir:/backups
@@ -35,19 +52,21 @@ services:
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
-      - TARGET_DB=gis
+      - TARGET_DB=data
       - WITH_POSTGIS=1
       - STORAGE_BACKEND=S3
-      - ACCESS_KEY_ID=${ACCESS_KEY_ID}
-      - SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY}
-      - DEFAULT_REGION=${DEFAULT_REGION}
-      - BUCKET=${BUCKET}
-      - HOST_BASE=${HOST_BASE}
-      - HOST_BUCKET=${HOST_BUCKET}
-      - SSL_SECURE=${SSL_SECURE}
+      - ACCESS_KEY_ID=minio_admin
+      - SECRET_ACCESS_KEY=secure_minio_secret
+      - DEFAULT_REGION=us-west-2
+      - BUCKET=backups
+      - HOST_BASE=minio:9000
+      - HOST_BUCKET=backup
+      - SSL_SECURE=False
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started
     healthcheck:
       interval: 60s
       timeout: 30s

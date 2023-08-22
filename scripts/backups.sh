@@ -109,9 +109,13 @@ function backup_db() {
 
 if [[ ${STORAGE_BACKEND} == "S3" ]]; then
   s3_config
-  if [[ $(s3cmd ls s3://${BUCKET} 2>&1 | grep -q 'NoSuchBucket' ) ]];then
-    s3cmd mb s3://${BUCKET}
+  if s3cmd ls "s3://${BUCKET}" >/dev/null 2>&1; then
+     echo "Bucket '${BUCKET}' exists."
+  else
+     echo "Bucket '${BUCKET}' does not exist. Creating..."
+     s3cmd mb "s3://${BUCKET}"
   fi
+
   # Backup globals Always get the latest
   PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
   echo "Sync globals.sql to ${BUCKET} bucket  " >>/var/log/cron.log

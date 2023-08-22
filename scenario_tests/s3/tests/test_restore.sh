@@ -2,7 +2,6 @@
 
 set -e
 
-/backup-scripts/pgenv.sh
 # execute tests
 pushd /tests
 
