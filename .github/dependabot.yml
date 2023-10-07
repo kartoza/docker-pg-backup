@@ -1,13 +1,13 @@
 version: 2
-registries:
-  dockerhub:
-    type: docker-registry
-    url: registry.hub.docker.com
-    username: ${{ secrets.DOCKERHUB_USERNAME }}
-    password: ${{ secrets.DOCKERHUB_PASSWORD }}
-    replaces-base: true
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+    registries:
+      dockerhub:
+        type: docker-registry
+        url: https://registry.hub.docker.com
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        replaces-base: true
