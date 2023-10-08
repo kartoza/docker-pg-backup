@@ -18,7 +18,7 @@ services:
       - POSTGRES_MULTIPLE_EXTENSIONS=postgis,hstore,postgis_topology,postgis_raster,pgrouting
     restart: on-failure
     healthcheck:
-      test: "PGPASSWORD=${POSTGRES_PASS} pg_isready -h 127.0.0.1 -U docker -d gis"
+      test: "PGPASSWORD=docker pg_isready -h 127.0.0.1 -U docker -d gis"
 
   dbbackups:
     image: kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
@@ -30,6 +30,7 @@ services:
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
+      - RUN_AS_ROOT=true
       #- CRON_SCHEDULE="*/5 * * * *"
       #- DB_DUMP_ENCRYPTION=true
     restart: on-failure

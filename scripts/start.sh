@@ -19,6 +19,9 @@ function file_env {
 	unset "$fileVar"
 }
 
+if [ -z "${RUN_AS_ROOT}" ]; then
+  RUN_AS_ROOT=true
+fi
 
 if [ -z "${EXTRA_CONF_DIR}" ]; then
   EXTRA_CONF_DIR=${DEFAULT_EXTRA_CONF_DIR}
@@ -139,6 +142,26 @@ function cron_config() {
 
 }
 
+function directory_checker() {
+  DATA_PATH=$1
+  if [ -d "$DATA_PATH" ];then
+    DB_USER_PERM=$(stat -c '%U' "${DATA_PATH}")
+    DB_GRP_PERM=$(stat -c '%G' "${DATA_PATH}")
+    if [[ ${DB_USER_PERM} != "${USER}" ]] &&  [[ ${DB_GRP_PERM} != "${GROUP}"  ]];then
+      chown -R "${USER}":"${GROUP}" "${DATA_PATH}"
+    fi
+  fi
+
+}
+function non_root_permission() {
+  USER="$1"
+  GROUP="$2"
+  services=("${DEFAULT_EXTRA_CONF_DIR}" "/build_data" "/root/" "/backups" "/etc" "/var/log" "/var/run/" "/usr/lib" "/usr/bin/")
+  for paths in "${services[@]}"; do
+    directory_checker "${paths}"
+  done
+}
+
 
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 # Copy settings for cron file
@@ -181,12 +204,48 @@ sed -i "s/'//g" /backup-scripts/backups-cron
 sed -i 's/\"//g' /backup-scripts/backups-cron
 
 # Setup cron job
-if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]];then
-  /backup-scripts/backups.sh
-else
-  crontab /backup-scripts/backups-cron
 
-  cron -f
+# Gosu preparations
+if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
+  USER_ID=${POSTGRES_UID:-1000}
+  GROUP_ID=${POSTGRES_GID:-1000}
+  USER_NAME=${USER:-postgresuser}
+  DB_GROUP_NAME=${GROUP_NAME:-postgresusers}
+
+  export USER_NAME=${USER_NAME}
+  export DB_GROUP_NAME=${DB_GROUP_NAME}
+
+  # Add group
+  if [ ! $(getent group "${DB_GROUP_NAME}") ]; then
+    groupadd -r "${DB_GROUP_NAME}" -g "${GROUP_ID}"
+  fi
+
+  # Add user to system
+  if id "${USER_NAME}" &>/dev/null; then
+      echo ' skipping user creation'
+  else
+      useradd -l -m -d /home/"${USER_NAME}"/ -u "${USER_ID}" --gid "${GROUP_ID}" -s /bin/bash -G "${DB_GROUP_NAME}" "${USER_NAME}"
+  fi
 
 fi
 
+if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
+  user="root"
+  group="root"
+  cron_command="cron -f"
+else
+  user="${USER_NAME}"
+  group="${DB_GROUP_NAME}"
+  cron_command="gosu ${USER_NAME} cron -f"
+fi
+
+non_root_permission "${user}" "${group}"
+
+if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
+  /backup-scripts/backups.sh
+else
+  chmod gu+rw /var/run
+  chmod gu+s /usr/sbin/cron
+  crontab -u "${USER_NAME}" /backup-scripts/backups-cron
+  ${cron_command}
+fi

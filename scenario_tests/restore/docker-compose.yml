@@ -40,6 +40,7 @@ services:
       - TARGET_ARCHIVE=/backups/latest.gis.dmp
       - WITH_POSTGIS=1
       - ARCHIVE_FILENAME=latest
+      - RUN_AS_ROOT=true
     depends_on:
       pg_backup:
         condition: service_healthy
