@@ -232,10 +232,12 @@ fi
 if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
   user="root"
   group="root"
+  cron_tab_command="crontab /backup-scripts/backups-cron"
   cron_command="cron -f"
 else
   user="${USER_NAME}"
   group="${DB_GROUP_NAME}"
+  cron_tab_command="crontab -u ${user} /backup-scripts/backups-cron"
   cron_command="gosu ${USER_NAME} cron -f"
 fi
 
@@ -246,6 +248,6 @@ if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
 else
   chmod gu+rw /var/run
   chmod gu+s /usr/sbin/cron
-  crontab -u "${USER_NAME}" /backup-scripts/backups-cron
+  ${cron_tab_command}
   ${cron_command}
 fi
