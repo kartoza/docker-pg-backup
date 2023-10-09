@@ -24,7 +24,7 @@ RUN sed -i 's/PostGIS/PgBackup/' ~/.bashrc
 WORKDIR /backup-scripts
 
 ENTRYPOINT ["/bin/bash", "/backup-scripts/start.sh"]
-CMD ["/scripts/docker-entrypoint.sh"]
+CMD []
 
 
 ##############################################################################
