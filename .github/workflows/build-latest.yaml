@@ -104,6 +104,5 @@ jobs:
           cache-from: |
            type=gha,scope=test
            type=gha,scope=prod
-           type=gha,scope=base
           cache-to: type=gha,scope=test
-          target: postgis-test
+          target: postgis-backup-test
