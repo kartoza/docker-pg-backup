@@ -1,33 +1,19 @@
 name: build-latest
 on:
-#  workflow_dispatch:
-#    inputs:
-#      distro:
-#        description: Base image distro
-#        required: true
-#        default: debian
-#      imageVersion:
-#        description: Base distro image version/release
-#        required: true
-#        default: bookworm
-#      imageVariant:
-#        description: Base image variant
-#        required: true
-#        default: slim
   workflow_dispatch:
   pull_request:
     branches:
       - master
   push:
     branches:
-      - develop
+      - master
 jobs:
   run-scenario-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         postgresMajorVersion:
-          - 15
+          - 16
         postgisMajorVersion:
           - 3
         postgisMinorRelease:
@@ -35,12 +21,8 @@ jobs:
         scenario:
           - restore
           - s3
-        include:
-          - distro: debian
-            imageVersion: bookworm
-            imageVariant: slim
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -57,7 +39,7 @@ jobs:
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
             POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
-            POSTGIS_MINOR_VERSION=${{ matrix.postgresMinorVersion }}
+            POSTGIS_MINOR_VERSION=${{ matrix.postgisMinorRelease }}
           cache-from: |
            type=gha,scope=test
            type=gha,scope=prod
@@ -80,17 +62,13 @@ jobs:
     strategy:
       matrix:
         postgresMajorVersion:
-          - 15
+          - 16
         postgisMajorVersion:
           - 3
         postgisMinorRelease:
           - 4
-        include:
-          - distro: debian
-            imageVersion: bookworm
-            imageVariant: slim
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -122,9 +100,10 @@ jobs:
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
             POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
-            POSTGIS_MINOR_VERSION=${{ matrix.postgresMinorVersion }}
+            POSTGIS_MINOR_VERSION=${{ matrix.postgisMinorRelease }}
           cache-from: |
            type=gha,scope=test
            type=gha,scope=prod
+           type=gha,scope=base
           cache-to: type=gha,scope=test
-          target: postgis-backup-test
+          target: postgis-test
