@@ -16,17 +16,13 @@ jobs:
     strategy:
       matrix:
         postgresMajorVersion:
-          - 15
+          - 16
         postgisMajorVersion:
           - 3
         postgisMinorRelease:
           - 4
-        include:
-          - distro: debian
-            imageVersion: bookworm
-            imageVariant: slim
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -46,6 +42,7 @@ jobs:
           now = datetime.datetime.utcnow()
           print(f'::set-output name=formatted::{now:%Y.%m.%d}')
 
+
       - name: Build prod image
         id: docker_build_prod
         uses: docker/build-push-action@v5
@@ -55,14 +52,12 @@ jobs:
           file: Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}
-            ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--v${{ steps.current_date.outputs.formatted }}
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
             POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
-            POSTGIS_MINOR_VERSION=${{ matrix.postgresMinorVersion }}
+            POSTGIS_MINOR_VERSION=${{ matrix.postgisMinorRelease }}
           cache-from: |
             type=gha,scope=test
             type=gha,scope=prod
