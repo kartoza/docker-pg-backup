@@ -62,4 +62,4 @@ jobs:
             type=gha,scope=test
             type=gha,scope=prod
           cache-to: type=gha,scope=prod
-          target: postgis-backup-prod
+          target: postgis-backup-production
