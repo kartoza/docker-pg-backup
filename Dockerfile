@@ -1,7 +1,7 @@
 ##############################################################################
 # Production Stage                                                           #
 ##############################################################################
-ARG POSTGRES_MAJOR_VERSION=15
+ARG POSTGRES_MAJOR_VERSION=16
 ARG POSTGIS_MAJOR_VERSION=3
 ARG POSTGIS_MINOR_RELEASE=4
 

@@ -122,6 +122,7 @@ if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   STRING_LENGTH=30
   random_pass_string=$(cat /dev/urandom | tr -dc '[:alnum:]' | head -c "${STRING_LENGTH}")
   DB_DUMP_ENCRYPTION_PASS_PHRASE=${random_pass_string}
+  export DB_DUMP_ENCRYPTION_PASS_PHRASE
 fi
 
 
