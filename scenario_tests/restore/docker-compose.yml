@@ -8,7 +8,7 @@ volumes:
 services:
 
   pg_backup:
-    image: kartoza/postgis:15-3.4
+    image: kartoza/postgis:16-3.4
     restart: 'always'
     volumes:
       - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
