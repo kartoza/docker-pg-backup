@@ -1,6 +1,4 @@
 
-version: '2.1'
-
 volumes:
   db-backups:
   db-data:
