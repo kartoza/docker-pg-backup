@@ -10,17 +10,23 @@ on:
       - completed
 jobs:
   deploy-image:
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      !(
+        contains(github.event.pull_request.title, '[skip-release]') ||
+        contains(github.event.comment.body, '/skiprelease')
+      ) && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     env:
       latest-ref: refs/heads/develop
     strategy:
       matrix:
         postgresMajorVersion:
-          - 16
+          - 17
         postgisMajorVersion:
           - 3
         postgisMinorRelease:
-          - 4
+          - 5
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU
@@ -33,15 +39,17 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      
+
       - name: Get Current Date
         id: current_date
-        shell: python
-        run: |
-          import datetime
-          now = datetime.datetime.utcnow()
-          print(f'::set-output name=formatted::{now:%Y.%m.%d}')
+        run: echo "formatted=$(date -u +%Y.%m.%d)" >> $GITHUB_OUTPUT
 
+      - name: Check if image exists on Docker Hub
+        id: check_hub_image_exists
+        run: |
+          docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_PASSWORD }}
+          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'${{ secrets.DOCKERHUB_USERNAME }}'", "password": "'${{ secrets.DOCKERHUB_PASSWORD }}'"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+          check_image=$(curl --silent -f --head -lL https://hub.docker.com/v2/repositories/kartoza/pg-backup/tags/${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}/ | head -n 1 | cut -d ' ' -f2) >> $GITHUB_OUTPUT
 
       - name: Build prod image
         id: docker_build_prod
@@ -53,6 +61,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}
+            ${{ steps.check_hub_image_exists.outputs.check_image == 200 && format('{0}/pg-backup:{1}-{2}.{3}', secrets.DOCKERHUB_REPO,  matrix.postgresMajorVersion, matrix.postgisMajorVersion, matrix.postgisMinorRelease) || null}}
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--v${{ steps.current_date.outputs.formatted }}
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}

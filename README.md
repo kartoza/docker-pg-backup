@@ -37,13 +37,13 @@ docker pull kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${P
 
 Where the environment variables are
 ```
-POSTGRES_MAJOR_VERSION=13
+POSTGRES_MAJOR_VERSION=17
 POSTGIS_MAJOR_VERSION=3
-POSTGIS_MINOR_RELEASE=1 
+POSTGIS_MINOR_RELEASE=5 
 ```
 
 We highly suggest that you use a tagged image that match the PostgreSQL image you are running i.e
-(kartoza/pg-backup:15-3.3 for backing up kartoza/postgis:15-3.3 DB). The
+(kartoza/pg-backup:17-3.5 for backing up kartoza/postgis:17-3.5 DB). The
 latest tag  may change and may not successfully back up your database. 
 
 
@@ -61,9 +61,9 @@ cd docker-pg-backup
 To create a running container do:
 
 ```
-POSTGRES_MAJOR_VERSION=15
+POSTGRES_MAJOR_VERSION=17
 POSTGIS_MAJOR_VERSION=3
-POSTGIS_MINOR_RELEASE=3 
+POSTGIS_MINOR_RELEASE=5 
 docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
 docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
 ```
@@ -85,8 +85,8 @@ databases.
 * `REMOVE_BEFORE` remove all old backups older than specified amount of days, e.g. `30` would 
 only keep backup files younger than 30 days. Default: no files are ever removed.
 * `DUMP_ARGS` The default dump arguments based on official 
-  [PostgreSQL Dump options](https://www.postgresql.org/docs/13/app-pgdump.html).
-* `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/13/app-pgrestore.html) 
+  [PostgreSQL Dump options](https://www.postgresql.org/docs/17/app-pgdump.html).
+* `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/17/app-pgrestore.html) 
 * `STORAGE_BACKEND` The default backend is to store the backup files. It can either
   be `FILE` or `S3`(Example minio or amazon bucket) backends. 
 * `DB_TABLES` A boolean variable to specify if the user wants to dump the DB as individual tables. 
@@ -116,7 +116,7 @@ As a concrete example, with `DUMPPREFIX=PG` and if your postgis has DB name `gis
 The backup archive would be something like:
 
 ```
-/backups/2019/February/PG_gis.13-February-2019.dmp
+/backups/2019/February/PG_gis.17-February-2019.dmp
 ```
 
 If you specify `ARCHIVE_FILENAME` instead (default value is empty). The

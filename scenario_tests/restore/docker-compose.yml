@@ -1,6 +1,4 @@
 
-version: '2.1'
-
 volumes:
   pg-backup-data-dir:
   pg-data-dir:
@@ -8,7 +6,7 @@ volumes:
 services:
 
   pg_backup:
-    image: kartoza/postgis:16-3.4
+    image: kartoza/postgis:17-3.5
     restart: 'always'
     volumes:
       - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
