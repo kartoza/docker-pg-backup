@@ -85,11 +85,12 @@ jobs:
     needs: [ deploy-image ]
     strategy:
       matrix:
-        geoserverMajorVersion:
-          - 2
-        geoserverMinorVersion:
-          - minor: 26
-            patch: 2
+        postgresMajorVersion:
+          - 17
+        postgisMajorVersion:
+          - 3
+        postgisMinorRelease:
+          - 5
     steps:
       - name: Checkout code
         id: git_checkout
@@ -99,7 +100,7 @@ jobs:
 
       - name: Get Current Date
         id: current_date
-        run: echo "formatted=$(date -u +%Y.%m.%d)" >> $GITHUB_OUTPUT
+        run: echo "formatted=$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
 
       - name: Get Latest Commit Hash
         id: latest_commit_hash
@@ -108,6 +109,6 @@ jobs:
       - name: publish_release
         id: tag_releases
         run: |
-          gh release create v${{ matrix.postgresMajorVersion }}.${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--v${{ steps.current_date.outputs.formatted }}--${{ steps.latest_commit_hash.outputs.commit }} --notes ${{ steps.latest_commit_hash.outputs.commit }} --target master --repo $GITHUB_REPOSITORY
+          gh release create v${{ matrix.postgresMajorVersion }}.${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--${{ steps.current_date.outputs.formatted }}--${{ steps.latest_commit_hash.outputs.commit }} --notes ${{ steps.latest_commit_hash.outputs.commit }} --target master --repo $GITHUB_REPOSITORY
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
