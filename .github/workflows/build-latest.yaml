@@ -107,15 +107,7 @@ jobs:
         contains(github.event.comment.body, '/skiprelease')
       )
     runs-on: ubuntu-latest
-    needs: [ run-scenario-tests ]
-    strategy:
-      matrix:
-        postgresMajorVersion:
-          - 17
-        postgisMajorVersion:
-          - 3
-        postgisMinorRelease:
-          - 5
+    needs: [ build-backup-image ]
     steps:
       - uses: actions/checkout@v4
       - name: Download artifact
