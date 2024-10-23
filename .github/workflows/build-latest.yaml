@@ -29,9 +29,6 @@ jobs:
           - 3
         postgisMinorRelease:
           - 5
-        scenario:
-          - restore
-          - s3
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU
