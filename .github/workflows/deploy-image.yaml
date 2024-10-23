@@ -85,11 +85,12 @@ jobs:
     needs: [ deploy-image ]
     strategy:
       matrix:
-        geoserverMajorVersion:
-          - 2
-        geoserverMinorVersion:
-          - minor: 26
-            patch: 2
+        postgresMajorVersion:
+          - 17
+        postgisMajorVersion:
+          - 3
+        postgisMinorRelease:
+          - 5
     steps:
       - name: Checkout code
         id: git_checkout
