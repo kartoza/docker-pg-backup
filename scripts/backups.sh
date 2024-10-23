@@ -81,17 +81,17 @@ function backup_db() {
     else
       export FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
     fi
-    echo "Backing up $DB" >>/var/log/cron.log
+    echo "Backing up $DB" >> ${CONSOLE_LOGGING_OUTPUT}
     if [ -z "${DB_TABLES:-}" ]; then
       if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
         PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} | openssl enc -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -out ${FILENAME}
       else
         PGPASSWORD=${POSTGRES_PASS} pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}
       fi
-      echo "Backing up $FILENAME done" >>/var/log/cron.log
+      echo "Backing up $FILENAME done" >> ${CONSOLE_LOGGING_OUTPUT}
       if [[ ${STORAGE_BACKEND} == "S3" ]]; then
         gzip $FILENAME
-        echo "Backing up $FILENAME to s3://${BUCKET}/" >>/var/log/cron.log
+        echo "Backing up $FILENAME to s3://${BUCKET}/" >> ${CONSOLE_LOGGING_OUTPUT}
         ${EXTRA_PARAMS}
         rm ${MYBACKUPDIR}/*.dmp.gz
       fi
@@ -118,7 +118,7 @@ if [[ ${STORAGE_BACKEND} == "S3" ]]; then
 
   # Backup globals Always get the latest
   PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
-  echo "Sync globals.sql to ${BUCKET} bucket  " >>/var/log/cron.log
+  echo "Sync globals.sql to ${BUCKET} bucket  " >> ${CONSOLE_LOGGING_OUTPUT}
   backup_db "s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/"
 
 elif [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
@@ -129,14 +129,14 @@ elif [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
 
 fi
 
-echo "Backup running to $MYBACKUPDIR" >>/var/log/cron.log
+echo "Backup running to $MYBACKUPDIR" >> ${CONSOLE_LOGGING_OUTPUT}
 
 
 if [ "${REMOVE_BEFORE:-}" ]; then
   TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
   if [[ ${STORAGE_BACKEND} == "FILE" ]]; then
-    echo "Removing following backups older than ${REMOVE_BEFORE} days" >>/var/log/cron.log
-    find ${MYBASEDIR}/* -type f -mmin +${TIME_MINUTES} -delete &>>/var/log/cron.log
+    echo "Removing following backups older than ${REMOVE_BEFORE} days" >> ${CONSOLE_LOGGING_OUTPUT}
+    find ${MYBASEDIR}/* -type f -mmin +${TIME_MINUTES} -delete &>> ${CONSOLE_LOGGING_OUTPUT}
   elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
     # Credits https://shout.setfive.com/2011/12/05/deleting-files-older-than-specified-time-with-s3cmd-and-bash/
     clean_s3bucket "${BUCKET}" "${REMOVE_BEFORE} days"

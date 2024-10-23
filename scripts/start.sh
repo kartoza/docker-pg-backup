@@ -118,6 +118,10 @@ if [ -z "${DB_DUMP_ENCRYPTION}" ]; then
   DB_DUMP_ENCRYPTION=FALSE
 fi
 
+if [ -z "${CONSOLE_LOGGING}" ]; then
+  CONSOLE_LOGGING=FALSE
+fi
+
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
 if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   STRING_LENGTH=30
@@ -128,20 +132,16 @@ fi
 
 
 function cron_config() {
-  if [[ ! -f /backup-scripts/backups-cron ]]; then
-    # If it doesn't exists, copy from ${EXTRA_CONF_DIR} directory if exists
-    if [[ -f ${EXTRA_CONFIG_DIR}/backups-cron ]]; then
-      cp -f ${EXTRA_CONFIG_DIR}/backups-cron /backup-scripts
-    else
+  if [[ -f ${EXTRA_CONFIG_DIR}/backups-cron ]]; then
+      envsubst < ${EXTRA_CONFIG_DIR}/backups-cron > /backup-scripts/backups-cron
+  else
       # default value
       if [ -z "${CRON_SCHEDULE}" ]; then
-            cp /build_data/backups-cron-default /backup-scripts/backups-cron
+            envsubst < /build_data/backups-cron-default > /backup-scripts/backups-cron
       else
             envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
        fi
-    fi
   fi
-
 }
 
 function directory_checker() {
@@ -167,8 +167,14 @@ function non_root_permission() {
 
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 # Copy settings for cron file
+if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
+   export CONSOLE_LOGGING_OUTPUT='/proc/1/fd/1 2>&1'
+else
+   export CONSOLE_LOGGING_OUTPUT='/var/log/cron.out 2>&1'
+fi
 
 cron_config
+
 function configure_env_variables() {
 echo "
 export PATH=\"${PATH}\"
@@ -196,11 +202,18 @@ DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
 export PG_CONN_PARAMETERS=\"${PG_CONN_PARAMETERS}\"
 export DBLIST=\"${DBLIST}\"
  " > /backup-scripts/pgenv.sh
+
 echo "Start script running with these environment options"
 set | grep PG
 
 }
 configure_env_variables
+if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
+   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/proc/1/fd/1 2>\&1#g' /backup-scripts/backups.sh
+else
+   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/var/log/cron.out 2>\&1#g' /backup-scripts/backups.sh
+fi
+
 # Fix variables not interpolated
 sed -i "s/'//g" /backup-scripts/backups-cron
 sed -i 's/\"//g' /backup-scripts/backups-cron
