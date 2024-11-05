@@ -41,13 +41,17 @@ file_env 'SECRET_ACCESS_KEY'
 if [ -z "${SECRET_ACCESS_KEY}" ]; then
 	SECRET_ACCESS_KEY=
 fi
+
+file_env 'DEFAULT_REGION'
 if [ -z "${DEFAULT_REGION}" ]; then
 	DEFAULT_REGION=us-west-2
 fi
 
+file_env 'BUCKET'
 if [ -z "${BUCKET}" ]; then
 	BUCKET=backups
 fi
+
 file_env 'HOST_BASE'
 if [ -z "${HOST_BASE}" ]; then
 	HOST_BASE=
@@ -56,12 +60,15 @@ fi
 if [ -z "${HOST_BUCKET}" ]; then
 	HOST_BUCKET=
 fi
+
 if [ -z "${SSL_SECURE}" ]; then
 	SSL_SECURE=True
 fi
+
 if [ -z "${DUMP_ARGS}" ]; then
 	 DUMP_ARGS='-Fc'
 fi
+
 if [ -z "${RESTORE_ARGS}" ]; then
 	RESTORE_ARGS='-j 4'
 fi
@@ -70,6 +77,7 @@ file_env 'POSTGRES_USER'
 if [ -z "${POSTGRES_USER}" ]; then
   POSTGRES_USER=docker
 fi
+
 file_env 'POSTGRES_PASS'
 if [ -z "${POSTGRES_PASS}" ]; then
   POSTGRES_PASS=docker
@@ -122,6 +130,10 @@ if [ -z "${CONSOLE_LOGGING}" ]; then
   CONSOLE_LOGGING=FALSE
 fi
 
+if [ -z "${DB_TABLES}" ]; then
+  DB_TABLES=FALSE
+fi
+
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
 if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   STRING_LENGTH=30
@@ -136,11 +148,12 @@ function cron_config() {
       envsubst < ${EXTRA_CONFIG_DIR}/backups-cron > /backup-scripts/backups-cron
   else
       # default value
+
       if [ -z "${CRON_SCHEDULE}" ]; then
-            envsubst < /build_data/backups-cron-default > /backup-scripts/backups-cron
-      else
-            envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
-       fi
+        export CRON_SCHEDULE='0 24 * * *'
+      fi
+      envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
+
   fi
 }
 
@@ -201,6 +214,7 @@ DB_DUMP_ENCRYPTION_PASS_PHRASE=\"${DB_DUMP_ENCRYPTION_PASS_PHRASE}\"
 DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
 export PG_CONN_PARAMETERS=\"${PG_CONN_PARAMETERS}\"
 export DBLIST=\"${DBLIST}\"
+export DB_TABLES=\"${DB_TABLES}\"
  " > /backup-scripts/pgenv.sh
 
 echo "Start script running with these environment options"
@@ -208,6 +222,7 @@ set | grep PG
 
 }
 configure_env_variables
+
 if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
    sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/proc/1/fd/1 2>\&1#g' /backup-scripts/backups.sh
 else

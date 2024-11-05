@@ -4,9 +4,10 @@
 #!/bin/bash
 
 source /backup-scripts/pgenv.sh
+POSTGRES_MAJOR_VERSION=$(cat /tmp/pg_version.txt)
+BIN_DIR="/usr/lib/postgresql/${POSTGRES_MAJOR_VERSION}/bin/"
 
 function s3_config() {
-  if [[ ! -f /root/.s3cfg ]]; then
     # If it doesn't exists, copy from ${EXTRA_CONF_DIR} directory if exists
     if [[ -f ${EXTRA_CONFIG_DIR}/s3cfg ]]; then
       cp -f ${EXTRA_CONFIG_DIR}/s3cfg /root/.s3cfg
@@ -14,7 +15,7 @@ function s3_config() {
       # default value
       envsubst < /build_data/s3cfg > /root/.s3cfg
     fi
-  fi
+
 
 }
 
@@ -23,7 +24,7 @@ function s3_restore() {
  if [[ ! $1 || "$(date -d "$1" +%Y-%m-%d 2> /dev/null)" = "$3" ]]; then
   		echo "invalid date"
   		exit 1
-    else
+else
 		MYDATE=$(date -d "$1" +%d-%B-%Y)
 		MONTH=$(date -d "$1" +%B)
 		YEAR=$(date -d "$1" +%Y)
@@ -32,15 +33,16 @@ function s3_restore() {
 		BACKUP_URL=${MYBACKUPDIR}/${DUMPPREFIX}_${2}.${MYDATE}.dmp.gz
 		if [[ "$(s3cmd ls s3://${BACKUP_URL} | wc -l)" = 1 ]]; then 
 			s3cmd get s3://${BACKUP_URL} /data/dump/$2.dmp.gz
-    		gunzip /data/dump/$2.dmp.gz
+    	gunzip /data/dump/$2.dmp.gz
 			echo "delete target DB with if its exists and recreate it"
-			PGPASSWORD=${POSTGRES_PASS} dropdb ${PG_CONN_PARAMETERS} --force --if-exists ${2}
-			PGPASSWORD=${POSTGRES_PASS} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER} ${2}
-			 if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
+			export PGPASSWORD=${POSTGRES_PASS}
+			${BIN_DIR}/dropdb ${PG_CONN_PARAMETERS} --force --if-exists ${2}
+			${BIN_DIR}/createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER} ${2}
+			if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
 			  openssl enc -d -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -in /data/dump/$2.dmp -out /tmp/decrypted.dump.gz | PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump.gz  -d $2 ${RESTORE_ARGS}
 			  rm -r /tmp/decrypted.dump.gz
 			else
-			  PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} /data/dump/$2.dmp  -d $2 ${RESTORE_ARGS}
+			  ${BIN_DIR}/pg_restore ${PG_CONN_PARAMETERS} /data/dump/$2.dmp  -d $2 ${RESTORE_ARGS}
 			fi
 		fi
 	fi
