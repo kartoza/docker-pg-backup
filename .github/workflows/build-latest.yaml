@@ -13,7 +13,7 @@ on:
     branches:
       - master
 jobs:
-  run-scenario-tests:
+  build-backup-image:
     if: |
       github.actor != 'dependabot[bot]' &&
       !(
@@ -29,9 +29,6 @@ jobs:
           - 3
         postgisMinorRelease:
           - 5
-        scenario:
-          - restore
-          - s3
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU
@@ -47,16 +44,47 @@ jobs:
           push: false
           load: true
           tags: kartoza/pg-backup:manual-build
+          outputs: type=docker,dest=/tmp/pg-backup.tar
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
             POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
             POSTGIS_MINOR_VERSION=${{ matrix.postgisMinorRelease }}
           cache-from: |
-           type=gha,scope=test
-           type=gha,scope=prod
-           type=gha,scope=base
+            type=gha,scope=test
+            type=gha,scope=prod
+            type=gha,scope=base
           cache-to: type=gha,scope=test
           target: postgis-backup-test
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kartoza-pg-backup
+          path: /tmp/pg-backup.tar
+
+  run-scenario-tests:
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      !(
+        contains(github.event.pull_request.title, '[skip-release]') ||
+        contains(github.event.comment.body, '/skiprelease')
+      )
+    runs-on: ubuntu-latest
+    needs: [ build-backup-image ]
+    strategy:
+      matrix:
+        scenario:
+          - restore
+          - s3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kartoza-pg-backup
+          path: /tmp
+      - name: Load image
+        run: |
+          docker load --input /tmp/pg-backup.tar
 
       - name: Run scenario test ${{ matrix.scenario }}
         working-directory: scenario_tests/${{ matrix.scenario }}
@@ -76,21 +104,17 @@ jobs:
         contains(github.event.comment.body, '/skiprelease')
       )
     runs-on: ubuntu-latest
-    needs: [ run-scenario-tests ]
-    strategy:
-      matrix:
-        postgresMajorVersion:
-          - 17
-        postgisMajorVersion:
-          - 3
-        postgisMinorRelease:
-          - 5
+    needs: [ build-backup-image ]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kartoza-pg-backup
+          path: /tmp
+      - name: Load image
+        run: |
+          docker load --input /tmp/pg-backup.tar
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
@@ -106,21 +130,4 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
 
-      - name: Build image for testing
-        id: docker_build_testing_image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          tags: |
-            ${{ steps.docker_meta.outputs.tags }}-${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}
-          build-args: |
-            POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
-            POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
-            POSTGIS_MINOR_VERSION=${{ matrix.postgisMinorRelease }}
-          cache-from: |
-           type=gha,scope=test
-           type=gha,scope=prod
-          cache-to: type=gha,scope=test
-          target: postgis-backup-test
+      
