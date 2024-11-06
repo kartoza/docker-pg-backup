@@ -63,7 +63,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup
-            ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}
+            ${{ steps.check_hub_image_exists.outputs.check_image == 200 && format('{0}/pg-backup:{1}-{2}.{3}', secrets.DOCKERHUB_REPO,  matrix.postgresMajorVersion, matrix.postgisMajorVersion, matrix.postgisMinorRelease) || null}}
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--v${{ steps.current_date.outputs.formatted }}
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
