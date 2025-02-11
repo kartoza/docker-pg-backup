@@ -14,7 +14,7 @@ services:
     environment:
       - POSTGRES_DB=gis
       - POSTGRES_USER=docker
-      - POSTGRES_PASS=docker
+      - POSTGRES_PASSWORD=docker
       - ACTIVATE_CRON=False
     healthcheck:
       interval: 60s
@@ -38,7 +38,7 @@ services:
       test: curl --fail -s http://localhost:9000/ || exit 1
 
   pg_restore:
-    image: kartoza/pg-backup:${TAG:-manual-build}
+    image: golav/pg-backup:${TAG:-manual-build}
     restart: 'always'
     volumes:
       - pg-backup-data-dir:/backups
@@ -48,7 +48,7 @@ services:
       - DUMPPREFIX=PG_gis
       - POSTGRES_HOST=db
       - POSTGRES_USER=docker
-      - POSTGRES_PASS=docker
+      - POSTGRES_PASSWORD=docker
       - POSTGRES_PORT=5432
       - TARGET_DB=data
       - WITH_POSTGIS=1

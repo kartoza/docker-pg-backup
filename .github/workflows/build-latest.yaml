@@ -43,7 +43,7 @@ jobs:
           file: Dockerfile
           push: false
           load: true
-          tags: kartoza/pg-backup:manual-build
+          tags: golav/pg-backup:manual-build
           outputs: type=docker,dest=/tmp/pg-backup.tar
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
@@ -58,7 +58,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kartoza-pg-backup
+          name: golav-pg-backup
           path: /tmp/pg-backup.tar
 
   run-scenario-tests:
@@ -80,7 +80,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: kartoza-pg-backup
+          name: golav-pg-backup
           path: /tmp
       - name: Load image
         run: |
@@ -110,7 +110,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: kartoza-pg-backup
+          name: golav-pg-backup
           path: /tmp
       - name: Load image
         run: |

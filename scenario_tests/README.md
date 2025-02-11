@@ -9,7 +9,7 @@ Go into root repo and run
 ./build-test.sh
 ```
 
-It will create a tagged image `kartoza/pg-backup:manual-build`
+It will create a tagged image `golav/pg-backup:manual-build`
 
 Each scenario tests in this directory use this image.
 

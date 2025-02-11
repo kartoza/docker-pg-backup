@@ -3,8 +3,8 @@
 source /backup-scripts/pgenv.sh
 
 # Env variables
-MYDATE=$(date +%d-%B-%Y)
-MONTH=$(date +%B)
+MYDATE=$(date +%Y%m%d_%H%M%S)
+MONTH=$(date +%m)
 YEAR=$(date +%Y)
 MYBASEDIR=/${BUCKET}
 MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
@@ -50,7 +50,7 @@ function dump_tables() {
     DATABASE=$1
 
     # Retrieve table names
-    array=($(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -d ${DATABASE} -At -F '.' -c "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog', 'topology') AND table_name NOT IN ('raster_columns', 'raster_overviews', 'spatial_ref_sys', 'geography_columns', 'geometry_columns') ORDER BY table_schema, table_name;"))
+    array=($(PGPASSWORD=${POSTGRES_PASSWORD} psql ${PG_CONN_PARAMETERS} -d ${DATABASE} -At -F '.' -c "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog', 'topology') AND table_name NOT IN ('raster_columns', 'raster_overviews', 'spatial_ref_sys', 'geography_columns', 'geometry_columns') ORDER BY table_schema, table_name;"))
 
     for i in "${array[@]}"; do
 
@@ -73,7 +73,7 @@ function dump_tables() {
         # Log the backup start time
         echo -e "Backup of \e[1;31m ${DB_TABLE} \033[0m from DATABASE \e[1;31m ${DATABASE} \033[0m starting at \e[1;31m $(date) \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
 
-        export PGPASSWORD=${POSTGRES_PASS}
+        export PGPASSWORD=${POSTGRES_PASSWORD}
 
         # Dump command
         if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]]; then
@@ -104,13 +104,13 @@ function backup_db() {
   fi
   for DB in ${DBLIST}; do
     if [ -z "${ARCHIVE_FILENAME:-}" ]; then
-      export FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
+      export FILENAME=${MYBACKUPDIR}/${DB}_${MYDATE}.dmp
     else
-      export FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
+      export FILENAME=${MYBACKUPDIR}/${DB}_"${ARCHIVE_FILENAME}.dmp"
     fi
 
     if [[ "${DB_TABLES}" =~ [Ff][Aa][Ll][Ss][Ee] ]]; then
-      export PGPASSWORD=${POSTGRES_PASS}
+      export PGPASSWORD=${POSTGRES_PASSWORD}
       echo -e "Backup  of \e[1;31m ${DB} \033[0m starting at \e[1;31m $(date) \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
       if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
         pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} | openssl enc -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -out ${FILENAME}
@@ -147,13 +147,13 @@ if [[ ${STORAGE_BACKEND} == "S3" ]]; then
   fi
 
   # Backup globals Always get the latest
-  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
+  PGPASSWORD=${POSTGRES_PASSWORD} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only | s3cmd put - s3://${BUCKET}/globals.sql
   echo "Sync globals.sql to ${BUCKET} bucket  " >> ${CONSOLE_LOGGING_OUTPUT}
   backup_db "s3cmd sync -r ${MYBASEDIR}/* s3://${BUCKET}/"
 
 elif [[ ${STORAGE_BACKEND} =~ [Ff][Ii][Ll][Ee] ]]; then
   # Backup globals Always get the latest
-  PGPASSWORD=${POSTGRES_PASS} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only -f ${MYBASEDIR}/globals.sql
+  PGPASSWORD=${POSTGRES_PASSWORD} pg_dumpall ${PG_CONN_PARAMETERS}  --globals-only -f ${MYBASEDIR}/globals.sql
   # Loop through each pg database backing it up
   backup_db ""
 

@@ -25,8 +25,8 @@ function s3_restore() {
   		echo "invalid date"
   		exit 1
 else
-		MYDATE=$(date -d "$1" +%d-%B-%Y)
-		MONTH=$(date -d "$1" +%B)
+    MYDATE=$(date -d "$1" +%Y%m%d_%H%M%S)
+    MONTH=$(date -d "$1" +%m)
 		YEAR=$(date -d "$1" +%Y)
 		MYBASEDIR=/${BUCKET}
 		MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
@@ -35,11 +35,11 @@ else
 			s3cmd get s3://${BACKUP_URL} /data/dump/$2.dmp.gz
     	gunzip /data/dump/$2.dmp.gz
 			echo "delete target DB with if its exists and recreate it"
-			export PGPASSWORD=${POSTGRES_PASS}
+			export PGPASSWORD=${POSTGRES_PASSWORD}
 			${BIN_DIR}/dropdb ${PG_CONN_PARAMETERS} --force --if-exists ${2}
 			${BIN_DIR}/createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER} ${2}
 			if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
-			  openssl enc -d -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -in /data/dump/$2.dmp -out /tmp/decrypted.dump.gz | PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump.gz  -d $2 ${RESTORE_ARGS}
+			  openssl enc -d -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -in /data/dump/$2.dmp -out /tmp/decrypted.dump.gz | PGPASSWORD=${POSTGRES_PASSWORD} pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump.gz  -d $2 ${RESTORE_ARGS}
 			  rm -r /tmp/decrypted.dump.gz
 			else
 			  ${BIN_DIR}/pg_restore ${PG_CONN_PARAMETERS} /data/dump/$2.dmp  -d $2 ${RESTORE_ARGS}
@@ -65,26 +65,26 @@ function file_restore() {
 
 
 	echo "Dropping target DB"
-	PGPASSWORD=${POSTGRES_PASS} dropdb ${PG_CONN_PARAMETERS} --if-exists ${TARGET_DB}
+	PGPASSWORD=${POSTGRES_PASSWORD} dropdb ${PG_CONN_PARAMETERS} --if-exists ${TARGET_DB}
 
 
 	if [ -z "${WITH_POSTGIS:-}" ]; then
 		echo "Recreate target DB without POSTGIS"
-		PGPASSWORD=${POSTGRES_PASS} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER} ${TARGET_DB}
+		PGPASSWORD=${POSTGRES_PASSWORD} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER} ${TARGET_DB}
 	else
 		echo "Recreate target DB with POSTGIS"
-		PGPASSWORD=${POSTGRES_PASS} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER}  ${TARGET_DB}
-		PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -c 'CREATE EXTENSION IF NOT EXISTS postgis;' ${TARGET_DB}
+		PGPASSWORD=${POSTGRES_PASSWORD} createdb ${PG_CONN_PARAMETERS} -O ${POSTGRES_USER}  ${TARGET_DB}
+		PGPASSWORD=${POSTGRES_PASSWORD} psql ${PG_CONN_PARAMETERS} -c 'CREATE EXTENSION IF NOT EXISTS postgis;' ${TARGET_DB}
 	fi
 
 	echo "Restoring dump file"
 	# Only works if the cluster is different- all the credentials are the same
 	#psql -f /backups/globals.sql ${TARGET_DB}
 	if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
-	  openssl enc -d -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -in ${TARGET_ARCHIVE} -out /tmp/decrypted.dump.gz | PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump.gz  -d ${TARGET_DB} ${RESTORE_ARGS}
+	  openssl enc -d -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -in ${TARGET_ARCHIVE} -out /tmp/decrypted.dump.gz | PGPASSWORD=${POSTGRES_PASSWORD} pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump.gz  -d ${TARGET_DB} ${RESTORE_ARGS}
 	  rm /tmp/decrypted.dump.gz
 	else
-	  PGPASSWORD=${POSTGRES_PASS} pg_restore ${PG_CONN_PARAMETERS} ${TARGET_ARCHIVE}  -d ${TARGET_DB} ${RESTORE_ARGS}
+	  PGPASSWORD=${POSTGRES_PASSWORD} pg_restore ${PG_CONN_PARAMETERS} ${TARGET_ARCHIVE}  -d ${TARGET_DB} ${RESTORE_ARGS}
 	fi
 
 }

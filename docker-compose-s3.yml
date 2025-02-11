@@ -11,12 +11,12 @@ services:
     environment:
       - POSTGRES_DB=gis
       - POSTGRES_USER=docker
-      - POSTGRES_PASS=docker
+      - POSTGRES_PASSWORD=docker
       - ALLOW_IP_RANGE=0.0.0.0/0
       - POSTGRES_MULTIPLE_EXTENSIONS=postgis,hstore,postgis_topology,postgis_raster,pgrouting
     restart: on-failure
     healthcheck:
-      test: "PGPASSWORD=${POSTGRES_PASS} pg_isready -h 127.0.0.1 -U docker -d gis"
+      test: "PGPASSWORD=${POSTGRES_PASSWORD} pg_isready -h 127.0.0.1 -U docker -d gis"
 
   minio:
     image: quay.io/minio/minio
@@ -35,12 +35,12 @@ services:
 
 
   dbbackups:
-    image: kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+    image: golav/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
     environment:
       - DUMPPREFIX=PG
       - POSTGRES_HOST=db
       - POSTGRES_USER=docker
-      - POSTGRES_PASS=docker
+      - POSTGRES_PASSWORD=docker
       - POSTGRES_PORT=5432
       - STORAGE_BACKEND=S3
       - ACCESS_KEY_ID=minio_admin

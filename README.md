@@ -18,7 +18,7 @@ It is primarily intended to be used with our [docker postgis](https://github.com
 docker image. By default, it will create a backup once per night (at 23h00)in a
 nicely ordered directory by a year / month.
 
-* Visit our page on the docker hub at: [https://hub.docker.com/r/kartoza/pg-backup](https://registry.hub.docker.com/r/kartoza/pg-backup)
+* Visit our page on the docker hub at: [https://hub.docker.com/r/golav/pg-backup](https://registry.hub.docker.com/r/golav/pg-backup)
 * Visit our page on GitHub at: https://github.com/kartoza/docker-pg-backup
 
 
@@ -32,7 +32,7 @@ get our docker trusted build like this:
 
 
 ```
-docker pull kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+docker pull golav/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
 ```
 
 Where the environment variables are
@@ -43,7 +43,7 @@ POSTGIS_MINOR_RELEASE=5
 ```
 
 We highly suggest that you use a tagged image that match the PostgreSQL image you are running i.e
-(kartoza/pg-backup:17-3.5 for backing up kartoza/postgis:17-3.5 DB). The
+(golav/pg-backup:17-3.5 for backing up kartoza/postgis:17-3.5 DB). The
 latest tag  may change and may not successfully back up your database. 
 
 
@@ -65,7 +65,7 @@ POSTGRES_MAJOR_VERSION=17
 POSTGIS_MAJOR_VERSION=3
 POSTGIS_MINOR_RELEASE=5 
 docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
-docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d golav/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
 ```
 
 ## Specifying environment variables
@@ -75,7 +75,7 @@ You can also use the following environment variables to pass a
 username and password etc for the database connection.
 
 * `POSTGRES_USER` if not set, defaults to : docker
-* `POSTGRES_PASS` if not set, defaults to : docker
+* `POSTGRES_PASSWORD` if not set, defaults to : docker
 * `POSTGRES_PORT` if not set, defaults to : 5432
 * `POSTGRES_HOST` if not set, defaults to : db
 * `ARCHIVE_FILENAME` you can use your specified filename format here, default to empty, which 

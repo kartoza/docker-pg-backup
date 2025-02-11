@@ -13,7 +13,7 @@ services:
     environment:
       - POSTGRES_DB=gis
       - POSTGRES_USER=docker
-      - POSTGRES_PASS=docker
+      - POSTGRES_PASSWORD=docker
       - ACTIVATE_CRON=FALSE
     healthcheck:
       interval: 60s
@@ -22,7 +22,7 @@ services:
       test: "PGPASSWORD=docker pg_isready -h 127.0.0.1 -U docker -d gis"
 
   pg_restore:
-    image: kartoza/pg-backup:${TAG:-manual-build}
+    image: golav/pg-backup:${TAG:-manual-build}
     restart: 'always'
     volumes:
       - pg-backup-data-dir:/backups
@@ -32,7 +32,7 @@ services:
       - DUMPPREFIX=PG_gis
       - POSTGRES_HOST=pg_backup
       - POSTGRES_USER=docker
-      - POSTGRES_PASS=docker
+      - POSTGRES_PASSWORD=docker
       - POSTGRES_PORT=5432
       - TARGET_DB=data
       - TARGET_ARCHIVE=/backups/latest.gis.dmp

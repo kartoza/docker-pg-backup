@@ -1,7 +1,7 @@
 # Used solely for docker-compose build
 services:
   postgis-backup-prod:
-    image: kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+    image: golav/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
     build:
       context: .
       # Use yaml anchor for reusability
@@ -12,7 +12,7 @@ services:
       target: postgis-backup-production
 
   postgis-backup-test:
-    image: kartoza/pg-backup:manual-build
+    image: golav/pg-backup:manual-build
     build:
       context: .
       args:

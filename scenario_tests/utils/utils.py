@@ -17,7 +17,7 @@ class DBConnection:
             host=os.environ.get('POSTGRES_HOST'),
             database=os.environ.get('POSTGRES_DB'),
             user=os.environ.get('POSTGRES_USER'),
-            password=os.environ.get('POSTGRES_PASS'),
+            password=os.environ.get('POSTGRES_PASSWORD'),
             port=os.environ.get('POSTGRES_PORT')
         )
 
