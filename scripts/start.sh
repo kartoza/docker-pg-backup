@@ -150,7 +150,7 @@ function cron_config() {
       # default value
 
       if [ -z "${CRON_SCHEDULE}" ]; then
-        export CRON_SCHEDULE='0 24 * * *'
+        export CRON_SCHEDULE='0 23 * * *'
       fi
       envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
 
