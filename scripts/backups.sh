@@ -112,12 +112,20 @@ function backup_db() {
     if [[ "${DB_TABLES}" =~ [Ff][Aa][Ll][Ss][Ee] ]]; then
       export PGPASSWORD=${POSTGRES_PASS}
       echo -e "Backup  of \e[1;31m ${DB} \033[0m starting at \e[1;31m $(date) \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
-      if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]];then
-        pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} | openssl enc -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -out ${FILENAME}
+      if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]]; then
+        if ! ( set -o pipefail && pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" | openssl enc -aes-256-cbc -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" -pbkdf2 -iter 10000 -md sha256 -out "${FILENAME}" ); then
+          echo -e "\e[1;31mFailed to back up ${DB} at $(date)\033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
+          rm ${FILENAME}
+          continue
+        fi
       else
-        pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}
+        if ! pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}; then
+          echo -e "\e[1;31mFailed to back up ${DB} at $(date)\033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
+          rm ${FILENAME}
+          continue
+        fi
       fi
-      echo -e "Backup of \e[1;33m ${DB} \033[0m completed at \e[1;33m $(date) \033[0m and dump located at \e[1;33m ${FILENAME} \033[0m " >> ${CONSOLE_LOGGING_OUTPUT}
+      echo -e "Backup of \e[1;33m ${DB} \033[0m completed at \e[1;33m $(date) \033[0m and dump located at \e[1;33m ${FILENAME} \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
       if [[ ${STORAGE_BACKEND} == "S3" ]]; then
         gzip ${FILENAME}
         echo -e "Pushing database backup \e[1;31m ${FILENAME} \033[0m to \e[1;31m s3://${BUCKET}/ \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
@@ -134,6 +142,30 @@ function backup_db() {
     fi
   done
 
+}
+
+function remove_files() {
+  TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
+  MIN_SAVED_FILE=${MIN_SAVED_FILE:-0}
+  echo "Cleaning backups older than ${REMOVE_BEFORE} days (keeping at least ${MIN_SAVED_FILE})" >> ${CONSOLE_LOGGING_OUTPUT}
+  # List all files and all files that are too old
+  mapfile -t all_files < <(find "${MYBASEDIR}" -type f -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-)
+  mapfile -t old_files < <(find "${MYBASEDIR}" -type f -mmin +${TIME_MINUTES} -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
+  #We need to substract globals.sql
+  number_of_files=${#all_files[@]}-1
+  keep_count=$(( number_of_files < MIN_SAVED_FILE ? ${#all_files[@]} : MIN_SAVED_FILE ))
+  max_deletable=$(( number_of_files - keep_count ))
+  deletable=()
+  i=0
+  while [[ $i -lt $max_deletable && $i -lt ${#old_files[@]} ]]; do
+    deletable+=("${old_files[$i]}")
+    ((i++))
+  done
+
+  for f in "${deletable[@]}"; do
+    echo "Deleting $f"
+    rm -f "$f"
+  done
 }
 
 
@@ -161,10 +193,8 @@ fi
 
 
 if [ "${REMOVE_BEFORE:-}" ]; then
-  TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
   if [[ ${STORAGE_BACKEND} == "FILE" ]]; then
-    echo "Removing following backups older than ${REMOVE_BEFORE} days" >> ${CONSOLE_LOGGING_OUTPUT}
-    find ${MYBASEDIR}/* -type f -mmin +${TIME_MINUTES} -delete & >> ${CONSOLE_LOGGING_OUTPUT}
+    remove_files
   elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
     # Credits https://shout.setfive.com/2011/12/05/deleting-files-older-than-specified-time-with-s3cmd-and-bash/
     clean_s3bucket "${BUCKET}" "${REMOVE_BEFORE} days"
