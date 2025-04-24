@@ -152,7 +152,7 @@ function remove_files() {
   mapfile -t all_files < <(find "${MYBASEDIR}" -type f -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-)
   mapfile -t old_files < <(find "${MYBASEDIR}" -type f -mmin +${TIME_MINUTES} -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
   #We need to substract globals.sql
-  number_of_files=${#all_files[@]}-1
+  number_of_files=$(( ${#all_files[@]} - 1 ))
   keep_count=$(( number_of_files < MIN_SAVED_FILE ? ${#all_files[@]} : MIN_SAVED_FILE ))
   max_deletable=$(( number_of_files - keep_count ))
   deletable=()
