@@ -30,7 +30,7 @@ jobs:
         postgisMinorRelease:
           - 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -76,7 +76,7 @@ jobs:
           - restore
           - s3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build-backup-image ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
