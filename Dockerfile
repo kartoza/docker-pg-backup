@@ -6,6 +6,9 @@ ARG POSTGIS_MAJOR_VERSION=3
 ARG POSTGIS_MINOR_RELEASE=5
 
 FROM kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE} AS postgis-backup-production
+ARG POSTGRES_MAJOR_VERSION
+ARG POSTGIS_MAJOR_VERSION
+ARG POSTGIS_MINOR_RELEASE
 
 RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip vim  gettext \
     && apt-get -y --purge autoremove && apt-get clean \

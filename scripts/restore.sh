@@ -1,8 +1,5 @@
 #!/bin/bash
 
-
-#!/bin/bash
-
 source /backup-scripts/pgenv.sh
 POSTGRES_MAJOR_VERSION=$(cat /tmp/pg_version.txt)
 BIN_DIR="/usr/lib/postgresql/${POSTGRES_MAJOR_VERSION}/bin/"
@@ -33,7 +30,7 @@ else
 		BACKUP_URL=${MYBACKUPDIR}/${DUMPPREFIX}_${2}.${MYDATE}.dmp.gz
 		if [[ "$(s3cmd ls s3://${BACKUP_URL} | wc -l)" = 1 ]]; then 
 			s3cmd get s3://${BACKUP_URL} /data/dump/$2.dmp.gz
-    	gunzip /data/dump/$2.dmp.gz
+    	    gunzip /data/dump/$2.dmp.gz
 			echo "delete target DB with if its exists and recreate it"
 			export PGPASSWORD=${POSTGRES_PASS}
 			${BIN_DIR}/dropdb ${PG_CONN_PARAMETERS} --force --if-exists ${2}
