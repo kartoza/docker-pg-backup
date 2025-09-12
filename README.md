@@ -84,6 +84,8 @@ means it will use default filename format.
 databases.
 * `REMOVE_BEFORE` remove all old backups older than specified amount of days, e.g. `30` would 
 only keep backup files younger than 30 days. Default: no files are ever removed.
+* `MIN_SAVED_FILE` if set, it ensures that we keep at least this amount of files. For instance, if we 
+choose `20`, we will at least keep 20 backups even if they are older than `REMOVE_BEFORE`. Default: set to 0.
 * `DUMP_ARGS` The default dump arguments based on official 
   [PostgreSQL Dump options](https://www.postgresql.org/docs/17/app-pgdump.html).
 * `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/17/app-pgrestore.html) 
