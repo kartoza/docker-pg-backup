@@ -15,8 +15,9 @@
 
 A simple docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
 It is primarily intended to be used with our [docker postgis](https://github.com/kartoza/docker-postgis)
-docker image. By default, it will create a backup once per night (at 23h00)in a
-nicely ordered directory by a year / month.
+docker image. By default, it will create a backup once per night (at 23h00) in a
+nicely ordered directory by a year / month. You can configure it to run more frequently 
+(e.g., hourly, every 30 minutes) using the `CRON_SCHEDULE` environment variable.
 
 * Visit our page on the docker hub at: [https://hub.docker.com/r/kartoza/pg-backup](https://registry.hub.docker.com/r/kartoza/pg-backup)
 * Visit our page on GitHub at: https://github.com/kartoza/docker-pg-backup
@@ -86,6 +87,9 @@ databases.
 only keep backup files younger than 30 days. Default: no files are ever removed.
 * `MIN_SAVED_FILE` if set, it ensures that we keep at least this amount of files. For instance, if we 
 choose `20`, we will at least keep 20 backups even if they are older than `REMOVE_BEFORE`. Default: set to 0.
+* `KEEP_ONLY_DAILY_AFTER` after the specified number of days, consolidate sub-daily backups (e.g., hourly, every 30 minutes) 
+to one backup per day. For example, `7` would keep all sub-daily backups for 7 days, then consolidate older ones to daily backups. 
+Default: `0` (no consolidation, all sub-daily backups are kept).
 * `DUMP_ARGS` The default dump arguments based on official 
   [PostgreSQL Dump options](https://www.postgresql.org/docs/17/app-pgdump.html).
 * `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/17/app-pgrestore.html) 
@@ -111,15 +115,19 @@ The default backup archive generated will be stored in the `/backups` directory
 (inside the container):
 
 ```
-/backups/$(date +%Y)/$(date +%B)/${DUMPPREFIX}_${DB}.$(date +%d-%B-%Y).dmp
+/backups/$(date +%Y)/$(date +%B)/${DUMPPREFIX}_${DB}.$(date +%d-%B-%Y-%H-%M).dmp
 ```
 
 As a concrete example, with `DUMPPREFIX=PG` and if your postgis has DB name `gis`.
 The backup archive would be something like:
 
 ```
-/backups/2019/February/PG_gis.17-February-2019.dmp
+/backups/2019/February/PG_gis.17-February-2019-14-30.dmp
 ```
+
+The filename includes hour and minute (`%H-%M`) to support sub-daily backups. When restoring, you can specify 
+a date alone to restore the latest backup of that day, or include the time (e.g., `2023-03-24-14-30`) to restore 
+a specific backup.
 
 If you specify `ARCHIVE_FILENAME` instead (default value is empty). The
 filename will be fixed according to this prefix.
@@ -197,9 +205,11 @@ i.e. if your original database is named `gis`, you can restore it into a new dat
 ### Restoring from S3 bucket
 The script uses [s3cmd](https://s3tools.org/s3cmd) for restoring files S3 bucket to a postgresql database.
 
-To restore from S3 bucket, first you have to exec into your running container. You have to launch the /backup-scripts/restore.sh with two parameters 
-- the first parameter is the target date that you want to restore: ex "2023-03-24" for the 24th March 2023.
-- the second parameter is for the database name you want your backup to be restored: ex "vaultdb"
+To restore from S3 bucket, first you have to exec into your running container. You have to launch the /backup-scripts/restore.sh with two parameters:
+- the first parameter is the target date (and optionally time) that you want to restore:
+  - Date only: `"2023-03-24"` - will restore the latest backup of that day
+  - Date and time: `"2023-03-24-14-30"` - will restore the backup from 14:30 on that day
+- the second parameter is for the database name you want your backup to be restored: ex `"vaultdb"`
 
 You can read more about configuration options for [s3cmd](https://s3tools.org/s3cmd-howto)
 
