@@ -17,7 +17,7 @@ class TestRestore(unittest.TestCase):
 
         current_archive = datetime.now().strftime(
             f"%Y/%B/"
-            f"{dump_prefix}_{db_name}.%d-%B-%Y.dmp")
+            f"{dump_prefix}_{db_name}.%d-%B-%Y-%H-%M.dmp")
 
         proc = subprocess.run([
             's3cmd',
