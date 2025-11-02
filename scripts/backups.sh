@@ -186,9 +186,9 @@ function remove_files() {
       # Extract DB and date part from filename (everything before time portion)
       db_date_key=$(echo "$filename" | sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\).*/\1/p')
 
-      if [[ -n "$db_date_key" ]]; then
+      if [[ -n "$db_date_key" ]] && [[ -n "${files_by_db_date[$db_date_key]:-}" ]]; then
         kept_file=$(echo "${files_by_db_date[$db_date_key]}" | cut -d' ' -f2-)
-        if [[ "$file" != "$kept_file" ]]; then
+        if [[ -n "$kept_file" ]] && [[ "$file" != "$kept_file" ]]; then
           echo "Deleting backup: $file (keeping only one per day per database)" >> ${CONSOLE_LOGGING_OUTPUT}
           rm -f "$file"
         fi
