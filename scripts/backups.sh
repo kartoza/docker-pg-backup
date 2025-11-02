@@ -147,18 +147,18 @@ function backup_db() {
 function remove_files() {
   TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
   MIN_SAVED_FILE=${MIN_SAVED_FILE:-0}
-  KEEP_ONLY_DAILY_AFTER=${KEEP_ONLY_DAILY_AFTER:-0}
-  KEEP_ONLY_DAILY_AFTER_MINUTES=$((KEEP_ONLY_DAILY_AFTER * 24 * 60))
+  CONSOLIDATE_AFTER=${CONSOLIDATE_AFTER:-0}
+  CONSOLIDATE_AFTER_MINUTES=$((CONSOLIDATE_AFTER * 24 * 60))
 
   echo "Cleaning backups older than ${REMOVE_BEFORE} days (keeping at least ${MIN_SAVED_FILE})" >> ${CONSOLE_LOGGING_OUTPUT}
 
-  # Handle sub-daily backup consolidation: keep only 1 backup per day for files older than KEEP_ONLY_DAILY_AFTER days
-  if [[ ${KEEP_ONLY_DAILY_AFTER} -gt 0 ]]; then
-    echo "Consolidating backups older than ${KEEP_ONLY_DAILY_AFTER} days (keeping 1 backup per day)" >> ${CONSOLE_LOGGING_OUTPUT}
+  # Handle sub-daily backup consolidation: keep only 1 backup per day for files older than CONSOLIDATE_AFTER days
+  if [[ ${CONSOLIDATE_AFTER} -gt 0 ]]; then
+    echo "Consolidating backups older than ${CONSOLIDATE_AFTER} days (keeping 1 backup per day)" >> ${CONSOLE_LOGGING_OUTPUT}
 
-    # Find all backup files older than KEEP_ONLY_DAILY_AFTER days (excluding globals.sql)
+    # Find all backup files older than CONSOLIDATE_AFTER days (excluding globals.sql)
     # Format: timestamp filepath (sorted by time, oldest first to keep the first of the day)
-    mapfile -t old_frequent_files_with_time < <(find "${MYBASEDIR}" -type f -mmin +${KEEP_ONLY_DAILY_AFTER_MINUTES} -name "*.dmp*" ! -name "globals.sql" -printf "%T@ %p\n" | sort -n)
+    mapfile -t old_frequent_files_with_time < <(find "${MYBASEDIR}" -type f -mmin +${CONSOLIDATE_AFTER_MINUTES} -name "*.dmp*" ! -name "globals.sql" -printf "%T@ %p\n" | sort -n)
 
     # Group files by database and date (DD-Month-YYYY) and keep only the first one per day per database
     declare -A files_by_db_date

@@ -87,7 +87,7 @@ databases.
 only keep backup files younger than 30 days. Default: no files are ever removed.
 * `MIN_SAVED_FILE` if set, it ensures that we keep at least this amount of files. For instance, if we 
 choose `20`, we will at least keep 20 backups even if they are older than `REMOVE_BEFORE`. Default: set to 0.
-* `KEEP_ONLY_DAILY_AFTER` after the specified number of days, consolidate sub-daily backups (e.g., hourly, every 30 minutes) 
+* `CONSOLIDATE_AFTER` after the specified number of days, consolidate sub-daily backups (e.g., hourly, every 30 minutes) 
 to one backup per day. For example, `7` would keep all sub-daily backups for 7 days, then consolidate older ones to daily backups. 
 Default: `0` (no consolidation, all sub-daily backups are kept).
 * `DUMP_ARGS` The default dump arguments based on official 
