@@ -18,17 +18,41 @@ function s3_config() {
 
 
 function s3_restore() {
- if [[ ! $1 || "$(date -d "$1" +%Y-%m-%d 2> /dev/null)" = "$3" ]]; then
+	# Check if date includes hour-minute (format: YYYY-MM-DD-HH-MM)
+	if [[ "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}$ ]]; then
+		DATE_PART=$(echo "$1" | cut -d'-' -f1-3)
+	else
+		DATE_PART="$1"
+	fi
+
+	if [[ ! $1 || "$(date -d "$DATE_PART" +%Y-%m-%d 2> /dev/null)" = "$3" ]]; then
   		echo "invalid date"
   		exit 1
-else
-		MYDATE=$(date -d "$1" +%d-%B-%Y)
-		MONTH=$(date -d "$1" +%B)
-		YEAR=$(date -d "$1" +%Y)
+	else
+		# Build MYDATE with or without hour-minute
+		if [[ "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}$ ]]; then
+			HOUR=$(echo "$1" | cut -d'-' -f4)
+			MINUTE=$(echo "$1" | cut -d'-' -f5)
+			MYDATE=$(date -d "$DATE_PART" +%d-%B-%Y)-${HOUR}-${MINUTE}
+		else
+			MYDATE=$(date -d "$1" +%d-%B-%Y)
+		fi
+		MONTH=$(date -d "$DATE_PART" +%B)
+		YEAR=$(date -d "$DATE_PART" +%Y)
 		MYBASEDIR=/${BUCKET}
 		MYBACKUPDIR=${MYBASEDIR}/${YEAR}/${MONTH}
 		BACKUP_URL=${MYBACKUPDIR}/${DUMPPREFIX}_${2}.${MYDATE}.dmp.gz
-		if [[ "$(s3cmd ls s3://${BACKUP_URL} | wc -l)" = 1 ]]; then 
+
+		# If no specific time provided, find latest backup of the day
+		if [[ ! "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}$ ]]; then
+			MYDATE_BASE=${MYDATE}
+			BACKUP_LIST=$(s3cmd ls s3://${MYBACKUPDIR}/ 2>/dev/null | grep -F "${DUMPPREFIX}_${2}.${MYDATE_BASE}-" | grep "\.dmp\.gz$" | awk '{print $4}' | sort -r | head -n 1)
+			if [[ -n "${BACKUP_LIST}" ]]; then
+				BACKUP_URL="${BACKUP_LIST}"
+			fi
+		fi
+
+		if [[ "$(s3cmd ls s3://${BACKUP_URL} 2>/dev/null | wc -l)" = 1 ]]; then
 			s3cmd get s3://${BACKUP_URL} /data/dump/$2.dmp.gz
     	    gunzip /data/dump/$2.dmp.gz
 			echo "delete target DB with if its exists and recreate it"

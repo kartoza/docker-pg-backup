@@ -3,7 +3,7 @@
 source /backup-scripts/pgenv.sh
 
 # Env variables
-MYDATE=$(date +%d-%B-%Y)
+MYDATE=$(date +%d-%B-%Y-%H-%M)
 MONTH=$(date +%B)
 YEAR=$(date +%Y)
 MYBASEDIR=/${BUCKET}
@@ -147,7 +147,55 @@ function backup_db() {
 function remove_files() {
   TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
   MIN_SAVED_FILE=${MIN_SAVED_FILE:-0}
+  CONSOLIDATE_AFTER=${CONSOLIDATE_AFTER:-0}
+  CONSOLIDATE_AFTER_MINUTES=$((CONSOLIDATE_AFTER * 24 * 60))
+
   echo "Cleaning backups older than ${REMOVE_BEFORE} days (keeping at least ${MIN_SAVED_FILE})" >> ${CONSOLE_LOGGING_OUTPUT}
+
+  # Handle sub-daily backup consolidation: keep only 1 backup per day for files older than CONSOLIDATE_AFTER days
+  if [[ ${CONSOLIDATE_AFTER} -gt 0 ]]; then
+    echo "Consolidating backups older than ${CONSOLIDATE_AFTER} days (keeping 1 backup per day)" >> ${CONSOLE_LOGGING_OUTPUT}
+
+    # Find all backup files older than CONSOLIDATE_AFTER days (excluding globals.sql)
+    # Format: timestamp filepath (sorted by time, oldest first to keep the first of the day)
+    mapfile -t old_frequent_files_with_time < <(find "${MYBASEDIR}" -type f -mmin +${CONSOLIDATE_AFTER_MINUTES} -name "*.dmp*" ! -name "globals.sql" -printf "%T@ %p\n" | sort -n)
+
+    # Group files by database and date (DD-Month-YYYY) and keep only the first one per day per database
+    declare -A files_by_db_date
+    for entry in "${old_frequent_files_with_time[@]}"; do
+      timestamp=$(echo "$entry" | cut -d' ' -f1)
+      file=$(echo "$entry" | cut -d' ' -f2-)
+      filename=$(basename "$file")
+      # Extract DB and date part from filename (everything before time portion)
+      # Format 1: DUMPPREFIX_DB.DD-Month-YYYY-HH-MM.dmp (database backups)
+      # Format 2: DUMPPREFIX_SCHEMA.TABLE_DD-Month-YYYY-HH-MM.dmp (table backups)
+      db_date_key=$(echo "$filename" | sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\).*/\1/p')
+
+      if [[ -n "$db_date_key" ]]; then
+        # Keep the first file encountered for each database+date (since sorted chronologically, this is the earliest)
+        if [[ -z "${files_by_db_date[$db_date_key]}" ]]; then
+          files_by_db_date["$db_date_key"]="$timestamp $file"
+        fi
+      fi
+    done
+
+    # Delete all files except the one we're keeping per database+date
+    for entry in "${old_frequent_files_with_time[@]}"; do
+      file=$(echo "$entry" | cut -d' ' -f2-)
+      filename=$(basename "$file")
+      # Extract DB and date part from filename (everything before time portion)
+      db_date_key=$(echo "$filename" | sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\).*/\1/p')
+
+      if [[ -n "$db_date_key" ]] && [[ -n "${files_by_db_date[$db_date_key]:-}" ]]; then
+        kept_file=$(echo "${files_by_db_date[$db_date_key]}" | cut -d' ' -f2-)
+        if [[ -n "$kept_file" ]] && [[ "$file" != "$kept_file" ]]; then
+          echo "Deleting backup: $file (keeping only one per day per database)" >> ${CONSOLE_LOGGING_OUTPUT}
+          rm -f "$file"
+        fi
+      fi
+    done
+  fi
+
   # List all files and all files that are too old
   mapfile -t all_files < <(find "${MYBASEDIR}" -type f -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-)
   mapfile -t old_files < <(find "${MYBASEDIR}" -type f -mmin +${TIME_MINUTES} -printf "%T@ %p\n" | sort -n | cut -d' ' -f2-)
