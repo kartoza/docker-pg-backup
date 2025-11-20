@@ -38,13 +38,13 @@ docker pull kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${P
 
 Where the environment variables are
 ```
-POSTGRES_MAJOR_VERSION=17
+POSTGRES_MAJOR_VERSION=18
 POSTGIS_MAJOR_VERSION=3
-POSTGIS_MINOR_RELEASE=5 
+POSTGIS_MINOR_RELEASE=6 
 ```
 
 We highly suggest that you use a tagged image that match the PostgreSQL image you are running i.e
-(kartoza/pg-backup:17-3.5 for backing up kartoza/postgis:17-3.5 DB). The
+(kartoza/pg-backup:18-3.6 for backing up kartoza/postgis:18-3.6 DB). The
 latest tag  may change and may not successfully back up your database. 
 
 
@@ -62,7 +62,7 @@ cd docker-pg-backup
 To create a running container do:
 
 ```
-POSTGRES_MAJOR_VERSION=17
+POSTGRES_MAJOR_VERSION=18
 POSTGIS_MAJOR_VERSION=3
 POSTGIS_MINOR_RELEASE=5 
 docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
@@ -91,8 +91,8 @@ choose `20`, we will at least keep 20 backups even if they are older than `REMOV
 to one backup per day. For example, `7` would keep all sub-daily backups for 7 days, then consolidate older ones to daily backups. 
 Default: `0` (no consolidation, all sub-daily backups are kept).
 * `DUMP_ARGS` The default dump arguments based on official 
-  [PostgreSQL Dump options](https://www.postgresql.org/docs/17/app-pgdump.html).
-* `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/17/app-pgrestore.html) 
+  [PostgreSQL Dump options](https://www.postgresql.org/docs/18/app-pgdump.html).
+* `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/18/app-pgrestore.html) 
 * `STORAGE_BACKEND` The default backend is to store the backup files. It can either
   be `FILE` or `S3`(Example minio or amazon bucket) backends. 
 * `DB_TABLES` A boolean variable to specify if the user wants to dump the DB as individual tables. 

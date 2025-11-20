@@ -1,9 +1,9 @@
 ##############################################################################
 # Production Stage                                                           #
 ##############################################################################
-ARG POSTGRES_MAJOR_VERSION=17
+ARG POSTGRES_MAJOR_VERSION=18
 ARG POSTGIS_MAJOR_VERSION=3
-ARG POSTGIS_MINOR_RELEASE=5
+ARG POSTGIS_MINOR_RELEASE=6
 
 FROM kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE} AS postgis-backup-production
 ARG POSTGRES_MAJOR_VERSION

@@ -24,11 +24,11 @@ jobs:
     strategy:
       matrix:
         postgresMajorVersion:
-          - 17
+          - 18
         postgisMajorVersion:
           - 3
         postgisMinorRelease:
-          - 5
+          - 6
     steps:
       - uses: actions/checkout@v5
       - name: Set up QEMU
