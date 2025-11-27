@@ -27,7 +27,9 @@ function s3_config() {
 function clean_s3bucket() {
   S3_BUCKET="$1"
   DEL_DAYS="$2"
-  if [[ $(s3cmd ls s3://${BUCKET} 2>&1 | grep -q 'NoSuchBucket' ) ]];then
+  CONSOLIDATE_AFTER_DAYS="$3"
+
+  if s3cmd ls s3://${S3_BUCKET} 2>&1 | grep -q 'NoSuchBucket'; then
     echo "buckets empty , no cleaning needed"
   else
     s3cmd ls s3://${S3_BUCKET} --recursive | while read -r line; do
@@ -42,6 +44,71 @@ function clean_s3bucket() {
         fi
       fi
     done
+
+    # Handle sub-daily backup consolidation for files older than CONSOLIDATE_AFTER_DAYS
+    CONSOLIDATE_AFTER=$(echo "$CONSOLIDATE_AFTER_DAYS" | awk '{print $1}')
+    if [[ ${CONSOLIDATE_AFTER} -gt 0 ]]; then
+      echo "Consolidating S3 backups older than ${CONSOLIDATE_AFTER_DAYS} (keeping 1 backup per day)" >> ${CONSOLE_LOGGING_OUTPUT}
+
+      # Find all backup files older than CONSOLIDATE_AFTER days (excluding globals.sql)
+      # Group by database + creation date (YYYY-MM-DD), keep earliest per day
+      declare -A files_by_db_date
+      while IFS= read -r line; do
+        createDate=$(echo $line | awk {'print $1'})
+        fileName=$(echo $line | awk {'print $4'})
+
+        # Skip globals.sql and non-backup files
+        if [[ "$fileName" == *"globals.sql"* ]] || [[ ! "$fileName" =~ \.(dmp|sql)(\.gz)? ]]; then
+          continue
+        fi
+
+        createDateSeconds=$(date -d"$createDate" +%s)
+        olderThanConsolidate=$(date -d"${CONSOLIDATE_AFTER_DAYS} ago" +%s)
+
+        if [[ $createDateSeconds -lt $olderThanConsolidate ]]; then
+          # Extract DB and date part from filename (everything before time portion)
+          # Format: {DUMPPREFIX}_{DB}.{DD-Month-YYYY-HH-MM}.dmp.gz
+          filename=$(basename "$fileName")
+          db_date_key=$(echo "$filename" | sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\).*/\1/p')
+
+          if [[ -n "$db_date_key" ]]; then
+            # Keep the first file encountered for each database+date (since sorted chronologically, this is the earliest)
+            if [[ -z "${files_by_db_date[$db_date_key]}" ]]; then
+              files_by_db_date["$db_date_key"]="$createDateSeconds $fileName"
+            fi
+          fi
+        fi
+      done < <(s3cmd ls s3://${S3_BUCKET} --recursive 2>/dev/null | sort -k1,2)
+
+      # Delete all files except the one we're keeping per database+date
+      while IFS= read -r line; do
+        createDate=$(echo $line | awk {'print $1'})
+        fileName=$(echo $line | awk {'print $4'})
+
+        # Skip globals.sql and non-backup files
+        if [[ "$fileName" == *"globals.sql"* ]] || [[ ! "$fileName" =~ \.(dmp|sql)(\.gz)? ]]; then
+          continue
+        fi
+
+        createDateSeconds=$(date -d"$createDate" +%s)
+        olderThanConsolidate=$(date -d"${CONSOLIDATE_AFTER_DAYS} ago" +%s)
+
+        if [[ $createDateSeconds -lt $olderThanConsolidate ]]; then
+          # Extract DB and date part from filename (everything before time portion)
+          # Format: {DUMPPREFIX}_{DB}.{DD-Month-YYYY-HH-MM}.dmp.gz
+          filename=$(basename "$fileName")
+          db_date_key=$(echo "$filename" | sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\).*/\1/p')
+
+          if [[ -n "$db_date_key" ]] && [[ -n "${files_by_db_date[$db_date_key]:-}" ]]; then
+            kept_file=$(echo "${files_by_db_date[$db_date_key]}" | awk '{print $2}')
+            if [[ -n "$kept_file" ]] && [[ "$fileName" != "$kept_file" ]]; then
+              echo "Deleting S3 backup: $fileName (keeping only one per day per database)" >> ${CONSOLE_LOGGING_OUTPUT}
+              s3cmd del "$fileName"
+            fi
+          fi
+        fi
+      done < <(s3cmd ls s3://${S3_BUCKET} --recursive 2>/dev/null | sort -k1,2)
+    fi
   fi
 }
 
@@ -245,6 +312,6 @@ if [ "${REMOVE_BEFORE:-}" ]; then
     remove_files
   elif [[ ${STORAGE_BACKEND} == "S3" ]]; then
     # Credits https://shout.setfive.com/2011/12/05/deleting-files-older-than-specified-time-with-s3cmd-and-bash/
-    clean_s3bucket "${BUCKET}" "${REMOVE_BEFORE} days"
+    clean_s3bucket "${BUCKET}" "${REMOVE_BEFORE} days" "${CONSOLIDATE_AFTER:-0} days"
   fi
 fi
