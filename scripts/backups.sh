@@ -24,15 +24,20 @@ function s3_config() {
 }
 
 function backup_monitoring() {
-  # If it doesn't exists, copy from ${EXTRA_CONF_DIR} directory if exists
-  if [[ -f ${EXTRA_CONFIG_DIR}/backup_monitoring.sh ]]; then
-    cp -f ${EXTRA_CONFIG_DIR}/backup_monitoring.sh /backup-scripts/backup_monitoring.sh
-    chmod 0755 /backup-scripts/backup_monitoring.sh
-    /bin/bash /backup-scripts/backup_monitoring.sh
+
+  if [[ -z "${MONITORING_ENDPOINT_COMMAND}" ]]; then
+    if [[ -f "${EXTRA_CONFIG_DIR}/backup_monitoring.sh" ]]; then
+      cp -f "${EXTRA_CONFIG_DIR}/backup_monitoring.sh" /backup-scripts/backup_monitoring.sh
+      chmod 0755 /backup-scripts/backup_monitoring.sh
+      /bin/bash /backup-scripts/backup_monitoring.sh
+    else
+      echo "No monitoring command or script found."
+    fi
+  else
+    eval "${MONITORING_ENDPOINT_COMMAND}"
   fi
-
-
 }
+
 
 # Cleanup S3 bucket
 function clean_s3bucket() {

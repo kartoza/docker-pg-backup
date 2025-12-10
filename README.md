@@ -181,6 +181,12 @@ If you need to run i.e webhook you can implement your own custom hook logic
 Where `backup_monitoring.sh` is located in `/data` or in
 kubernetes you can mount this file as a config.
 
+or you can just run the env variable
+```bash
+MONITORING_ENDPOINT_COMMAND="""curl -D - -X POST -G 'https://appsignal-endpoint.net/check_ins/heartbeats' -d 'api_key=YOUR-APP-LEVEL-API-KEY' -d 'identifier=YOUR-CHECK-IN-IDENTIFIER'"""
+```
+to monitor success or failure of the backup.
+
 ## Restoring
 
 The image provides a simple restore script. There are two ways to restore files based on the
