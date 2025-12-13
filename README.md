@@ -158,6 +158,8 @@ For a typical usage of this look at the [docker-compose-s3.yml](https://github.c
 The image supports mounting the following configs:
 * `s3cfg` when backing to `S3` backend
 * backup-cron for any custom configuration you need to specify in the file.
+* `backup_monitoring.sh` - For any custom monitoring state on database dump completion or failure 
+i.e Add webhook/callback support for backup completion notifications 
 
 An environment variable `${EXTRA_CONFIG_DIR}` controls the location of the folder.
 
@@ -169,6 +171,21 @@ run the following:
 -v /data:/settings
 ```
 Where `s3cfg` is located in `/data`
+
+If you need to run i.e webhook you can implement your own custom hook logic
+```
+-e ${EXTRA_CONFIG_DIR}=/settings
+-v /data:/settings
+```
+
+Where `backup_monitoring.sh` is located in `/data` or in
+kubernetes you can mount this file as a config.
+
+or you can just run the env variable
+```bash
+MONITORING_ENDPOINT_COMMAND="""curl -D - -X POST -G 'https://appsignal-endpoint.net/check_ins/heartbeats' -d 'api_key=YOUR-APP-LEVEL-API-KEY' -d 'identifier=YOUR-CHECK-IN-IDENTIFIER'"""
+```
+to monitor success or failure of the backup.
 
 ## Restoring
 

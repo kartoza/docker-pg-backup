@@ -23,6 +23,22 @@ function s3_config() {
 
 }
 
+function backup_monitoring() {
+
+  if [[ -z "${MONITORING_ENDPOINT_COMMAND}" ]]; then
+    if [[ -f "${EXTRA_CONFIG_DIR}/backup_monitoring.sh" ]]; then
+      cp -f "${EXTRA_CONFIG_DIR}/backup_monitoring.sh" /backup-scripts/backup_monitoring.sh
+      chmod 0755 /backup-scripts/backup_monitoring.sh
+      /bin/bash /backup-scripts/backup_monitoring.sh
+    else
+      echo "No monitoring command or script found."
+    fi
+  else
+    eval "${MONITORING_ENDPOINT_COMMAND}"
+  fi
+}
+
+
 # Cleanup S3 bucket
 function clean_s3bucket() {
   S3_BUCKET="$1"
@@ -148,12 +164,14 @@ function dump_tables() {
             pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DATABASE}" -t "${DB_TABLE}" | openssl enc -aes-256-cbc -pass pass:${DB_DUMP_ENCRYPTION_PASS_PHRASE} -pbkdf2 -iter 10000 -md sha256 -out "${FILENAME}"
             if [[ $? -ne 0 ]];then
              echo -e "Backup of \e[0;32m ${DB_TABLE} \033[0m from DATABASE \e[0;32m ${DATABASE} \033[0m failed" >> ${CONSOLE_LOGGING_OUTPUT}
+             backup_monitoring
             fi
         else
             # Plain backup
             pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DATABASE}" -t "${DB_TABLE}" > "${FILENAME}"
             if [[ $? -ne 0 ]];then
              echo -e "Backup of \e[0;32m ${DB_TABLE} \033[0m from DATABASE \e[0;32m ${DATABASE} \033[0m failed" >> ${CONSOLE_LOGGING_OUTPUT}
+             backup_monitoring
             fi
         fi
 
@@ -163,53 +181,74 @@ function dump_tables() {
     done
 }
 
-
 function backup_db() {
   EXTRA_PARAMS=''
   if [ -n "$1" ]; then
     EXTRA_PARAMS=$1
   fi
+
   for DB in ${DBLIST}; do
     if [ -z "${ARCHIVE_FILENAME:-}" ]; then
-      export FILENAME=${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp
+      export FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp"
     else
-      export FILENAME=${MYBASEDIR}/"${ARCHIVE_FILENAME}.${DB}.dmp"
+      export FILENAME="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}.dmp"
     fi
 
-    if [[ "${DB_TABLES}" =~ [Ff][Aa][Ll][Ss][Ee] ]]; then
-      export PGPASSWORD=${POSTGRES_PASS}
-      echo -e "Backup  of \e[1;31m ${DB} \033[0m starting at \e[1;31m $(date) \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
-      if [[ "${DB_DUMP_ENCRYPTION}" =~ [Tt][Rr][Uu][Ee] ]]; then
-        if ! ( set -o pipefail && pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" | openssl enc -aes-256-cbc -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" -pbkdf2 -iter 10000 -md sha256 -out "${FILENAME}" ); then
-          echo -e "\e[1;31mFailed to back up ${DB} at $(date)\033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
-          rm ${FILENAME}
-          continue
-        fi
-      else
-        if ! pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d ${DB} > ${FILENAME}; then
-          echo -e "\e[1;31mFailed to back up ${DB} at $(date)\033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
-          rm ${FILENAME}
-          continue
-        fi
-      fi
-      echo -e "Backup of \e[1;33m ${DB} \033[0m completed at \e[1;33m $(date) \033[0m and dump located at \e[1;33m ${FILENAME} \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
-      if [[ ${STORAGE_BACKEND} == "S3" ]]; then
-        gzip ${FILENAME}
-        echo -e "Pushing database backup \e[1;31m ${FILENAME} \033[0m to \e[1;31m s3://${BUCKET}/ \033[0m" >> ${CONSOLE_LOGGING_OUTPUT}
-        ${EXTRA_PARAMS}
-        rm ${MYBACKUPDIR}/*.dmp.gz
-      fi
-    else
+    export PGPASSWORD="${POSTGRES_PASS}"
 
-      dump_tables ${DB}
-      if [[ ${STORAGE_BACKEND} == "S3" ]]; then
-        ${EXTRA_PARAMS}
-        rm ${MYBACKUPDIR}/*
+    echo "[$(date)] Starting backup of ${DB}" >> "${CONSOLE_LOGGING_OUTPUT}"
+
+
+    if [[ "${DB_DUMP_ENCRYPTION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+
+      set -o pipefail
+      if pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
+        | openssl enc -aes-256-cbc \
+            -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" \
+            -pbkdf2 -iter 10000 -md sha256 \
+            -out "${FILENAME}"
+      then
+        echo "[$(date)] Backup SUCCESS (encrypted) for ${DB}, saved to ${FILENAME}" \
+          >> "${CONSOLE_LOGGING_OUTPUT}"
+          backup_monitoring
+      else
+        echo "[$(date)] ERROR: Backup FAILED (encrypted) for ${DB}" \
+          >> "${CONSOLE_LOGGING_OUTPUT}"
+          backup_monitoring
+        rm -f "${FILENAME}"
+        continue
       fi
+      set +o pipefail
+
+
+    else
+      if pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" > "${FILENAME}"; then
+        echo "[$(date)] Backup SUCCESS for ${DB}, saved to ${FILENAME}" \
+          >> "${CONSOLE_LOGGING_OUTPUT}"
+          backup_monitoring
+      else
+        echo "[$(date)] ERROR: Backup FAILED for ${DB}" \
+          >> "${CONSOLE_LOGGING_OUTPUT}"
+          backup_monitoring
+        rm -f "${FILENAME}"
+        continue
+      fi
+    fi
+
+
+    if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
+      gzip "${FILENAME}"
+
+      echo "[$(date)] Uploading ${FILENAME}.gz to s3://${BUCKET}/" \
+        >> "${CONSOLE_LOGGING_OUTPUT}"
+
+      ${EXTRA_PARAMS}
+
+      rm -f ${MYBACKUPDIR}/*.dmp.gz
     fi
   done
-
 }
+
 
 function remove_files() {
   TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
