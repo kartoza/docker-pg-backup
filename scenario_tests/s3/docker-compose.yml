@@ -7,7 +7,7 @@ volumes:
 services:
 
   db:
-    image: kartoza/postgis:17-3.5
+    image: kartoza/postgis:18-3.6
     restart: 'always'
     volumes:
       - ./setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql

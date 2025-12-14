@@ -226,6 +226,7 @@ function non_root_permission() {
 
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 mkdir -p "${MYBACKUPDIR}"
+mkdir -p "${MYBASEDIR}"
 # Copy settings for cron file
 
 
