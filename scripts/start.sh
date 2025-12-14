@@ -138,6 +138,48 @@ if [ -z "${DB_TABLES}" ]; then
   DB_TABLES=FALSE
 fi
 
+if [ -z "${ENABLE_S3_BACKUP}" ];then
+  ENABLE_S3_BACKUP=false
+fi
+
+if [ -z "${CLEANUP_DRY_RUN}" ];then
+  CLEANUP_DRY_RUN=false
+fi
+
+if [ -z "${MYDATE}" ];then
+   MYDATE="$(date +%d-%B-%Y-%H-%M)"
+fi
+if [ -z "${MONTH}" ];then
+     MONTH="$(date +%B)"
+fi
+if [ -z "${YEAR}" ]; then
+  YEAR="$(date +%Y)"
+fi
+
+if [ -z "${MYBASEDIR}" ]; then
+   MYBASEDIR="/${BUCKET:-backups}"
+fi
+if [ -z "${MYBACKUPDIR}" ]; then
+  MYBACKUPDIR="${MYBASEDIR}/${YEAR}/${MONTH}"
+fi
+
+if [ -z "${TIME_MINUTES}" ]; then
+  TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
+fi
+
+if [ -z "${MIN_SAVED_FILE}" ]; then
+   MIN_SAVED_FILE=0
+fi
+
+if [ -z "${CONSOLIDATE_AFTER}" ]; then
+   CONSOLIDATE_AFTER=0
+fi
+
+if [ -z "${CONSOLIDATE_AFTER_MINUTES}" ]; then
+   CONSOLIDATE_AFTER_MINUTES=$((CONSOLIDATE_AFTER * 24 * 60))
+fi
+
+
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
 if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   STRING_LENGTH=30
@@ -183,12 +225,9 @@ function non_root_permission() {
 
 
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
+mkdir -p "${MYBACKUPDIR}"
 # Copy settings for cron file
-if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
-   export CONSOLE_LOGGING_OUTPUT='/proc/1/fd/1 2>&1'
-else
-   export CONSOLE_LOGGING_OUTPUT='/var/log/cron.out 2>&1'
-fi
+
 
 cron_config
 
@@ -216,11 +255,21 @@ export REMOVE_BEFORE="${REMOVE_BEFORE}"
 export CONSOLIDATE_AFTER="${CONSOLIDATE_AFTER}"
 export MIN_SAVED_FILE="${MIN_SAVED_FILE}"
 export RUN_ONCE="${RUN_ONCE}"
-DB_DUMP_ENCRYPTION_PASS_PHRASE=\"${DB_DUMP_ENCRYPTION_PASS_PHRASE}\"
-DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
+export DB_DUMP_ENCRYPTION_PASS_PHRASE=\"${DB_DUMP_ENCRYPTION_PASS_PHRASE}\"
+export DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
 export PG_CONN_PARAMETERS=\"${PG_CONN_PARAMETERS}\"
 export DBLIST=\"${DBLIST}\"
 export DB_TABLES=\"${DB_TABLES}\"
+export ENABLE_S3_BACKUP=\"${ENABLE_S3_BACKUP}\"
+export CLEANUP_DRY_RUN=\"${CLEANUP_DRY_RUN}\"
+export MYBASEDIR=\"${MYBASEDIR}\"
+export MYBACKUPDIR=\"${MYBACKUPDIR}\"
+export MYDATE=\"${MYDATE}\"
+export MONTH=\"${MONTH}\"
+export YEAR="${YEAR}"
+export TIME_MINUTES="${TIME_MINUTES}"
+export CONSOLIDATE_AFTER="${CONSOLIDATE_AFTER}"
+export CONSOLIDATE_AFTER_MINUTES="${CONSOLIDATE_AFTER_MINUTES}"
  " > /backup-scripts/pgenv.sh
 
 echo "Start script running with these environment options"
@@ -229,11 +278,7 @@ set | grep PG
 }
 configure_env_variables
 
-if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/proc/1/fd/1 2>\&1#g' /backup-scripts/backups.sh
-else
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/var/log/cron.out 2>\&1#g' /backup-scripts/backups.sh
-fi
+
 
 # Fix variables not interpolated
 sed -i "s/'//g" /backup-scripts/backups-cron

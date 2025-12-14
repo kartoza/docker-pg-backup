@@ -13,14 +13,15 @@
   
 # Docker PG Backup
 
-A simple docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
-It is primarily intended to be used with our [docker postgis](https://github.com/kartoza/docker-postgis)
-docker image. By default, it will create a backup once per night (at 23h00) in a
-nicely ordered directory by a year / month. You can configure it to run more frequently 
-(e.g., hourly, every 30 minutes) using the `CRON_SCHEDULE` environment variable.
+## Overview
 
-* Visit our page on the docker hub at: [https://hub.docker.com/r/kartoza/pg-backup](https://registry.hub.docker.com/r/kartoza/pg-backup)
-* Visit our page on GitHub at: https://github.com/kartoza/docker-pg-backup
+* A docker container that runs PostgreSQL / PostGIS backups (PostGIS is not required it will backup any PG database). 
+* It is primarily intended to be used with our [kartoza/postgis](https://github.com/kartoza/docker-postgis) docker image. 
+* By default, it will create a backup once per night (at 23h00) in a nicely ordered directory by a year / month. 
+* Environment variables to fine tune some backup parameters i.e.  
+(e.g., hourly, every 30 minutes) using the `CRON_SCHEDULE` environment variable.
+* Backup and restore to file or S3 environments (Tested with minio).
+* Adapts all functionality from upstream [kartoza/postgis](https://github.com/kartoza/docker-postgis/)
 
 
 ## Getting the image
@@ -61,24 +62,31 @@ cd docker-pg-backup
 
 To create a running container do:
 
-```
-POSTGRES_MAJOR_VERSION=18
-POSTGIS_MAJOR_VERSION=3
-POSTGIS_MINOR_RELEASE=5 
-docker run --name "db"  -p 25432:5432 -d -t kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
-docker run --name="backups"  --link db:db -v `pwd`/backups:/backups  -d kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
-```
+### Use docker-compose
+
+1) Make sure you have an env file with the following environmental
+   variables set.
+    
+      ```bash
+    POSTGRES_MAJOR_VERSION=18
+    POSTGIS_MAJOR_VERSION=3
+    POSTGIS_MINOR_RELEASE=5
+    ```
+   
+2) Spin up the docker containers using the docker compose version installed on your machine i.e.
+    ```bash
+    docker-compose up -d or docker compose up -d
+    ```
 
 ## Specifying environment variables
 
 
-You can also use the following environment variables to pass a
-username and password etc for the database connection.
+Below is a list of environment variables that can be used with the image.
 
-* `POSTGRES_USER` if not set, defaults to : docker
-* `POSTGRES_PASS` if not set, defaults to : docker
-* `POSTGRES_PORT` if not set, defaults to : 5432
-* `POSTGRES_HOST` if not set, defaults to : db
+* `POSTGRES_USER` defaults to : docker
+* `POSTGRES_PASS` defaults to : docker
+* `POSTGRES_PORT` defaults to : 5432
+* `POSTGRES_HOST` defaults to : db
 * `ARCHIVE_FILENAME` you can use your specified filename format here, default to empty, which 
 means it will use default filename format.
 * `DBLIST` a space-separated list of databases for backup, e.g. `gis data`. Default is all 
@@ -141,6 +149,8 @@ The backup archive would be something like
 ## Backing up to S3 bucket
 The script uses [s3cmd](https://s3tools.org/s3cmd) for backing up files to S3 bucket.
 
+You need to specify the following environment variables backup to S3
+
 * `ACCESS_KEY_ID` Access key for the bucket
 * `SECRET_ACCESS_KEY` Secret Access key for the bucket
 * `DEFAULT_REGION` Defaults to 'us-west-2'  
@@ -189,14 +199,16 @@ to monitor success or failure of the backup.
 
 ## Restoring
 
-The image provides a simple restore script. There are two ways to restore files based on the
-location of the backup files.
+The image provides a restore script. 
+
+There are two ways to restore files based on the location of the backup files.
+
 * Restore from file based backups.
 * Restore from cloud based backups.
 
 ### Restore from file based backups
 
-You need to specify some environment variables first:
+Set the following environment variables:
 
  * `TARGET_DB` The db name to restore
  * `WITH_POSTGIS` Kartoza specific, to generate POSTGIS extension along with the restore process
