@@ -21,21 +21,44 @@ check_db_ready() {
 ############################################
 # Globals backup
 ############################################
-backup_globals_file() {
-  mkdir -p "${MYBACKUPDIR}"
-  db_log "Backing up globals.sql to filesystem"
-  PGPASSWORD="${POSTGRES_PASS}" \
-    pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
-    > "${MYBACKUPDIR}/globals.sql"
-}
+backup_globals() {
+  db_log "Starting globals backup"
 
-backup_globals_s3() {
-  db_log "Backing up globals.sql to S3"
-  PGPASSWORD="${POSTGRES_PASS}" \
-    pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
-    | s3cmd put - "s3://${BUCKET}/globals.sql"
-}
+  set -o pipefail
 
+  if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
+    db_log "Backing up globals.sql to S3 bucket ${BUCKET}"
+
+    if PGPASSWORD="${POSTGRES_PASS}" \
+      pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
+      | s3cmd put - "s3://${BUCKET}/globals.sql"
+    then
+      db_log "Globals backup to S3 completed successfully"
+    else
+      db_log "ERROR: Globals backup to S3 failed"
+      notify_monitoring "failure"
+      exit 1
+    fi
+
+  else
+    mkdir -p "${MYBASEDIR}"
+
+    db_log "Backing up globals.sql to filesystem (${MYBACKUPDIR})"
+
+    if PGPASSWORD="${POSTGRES_PASS}" \
+      pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
+      > "${MYBASEDIR}/globals.sql"
+    then
+      db_log "Globals backup to filesystem completed successfully"
+    else
+      db_log "ERROR: Globals backup to filesystem failed"
+      notify_monitoring "failure"
+      exit 1
+    fi
+  fi
+
+  set +o pipefail
+}
 ############################################
 # Main DB backup dispatcher
 ############################################
@@ -60,7 +83,11 @@ backup_single_database() {
 
   mkdir -p "${MYBACKUPDIR}"
 
-  local filename="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp"
+  if [ -z "${ARCHIVE_FILENAME:-}" ]; then
+      local filename="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp"
+    else
+      local filename="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}.dmp"
+  fi
 
   db_log "Starting backup of database ${DB}"
 
@@ -129,4 +156,48 @@ dump_tables() {
         > "${out}"
     fi
   done
+}
+
+############################################
+# Drop & recreate DB
+############################################
+restore_recreate_db() {
+  local db="$1"
+
+  db_log "Recreating database ${db}"
+
+  export PGPASSWORD="${POSTGRES_PASS}"
+
+  dropdb ${PG_CONN_PARAMETERS} --if-exists --force "${db}"
+  createdb ${PG_CONN_PARAMETERS} -O "${POSTGRES_USER}" "${db}"
+
+  if [[ -n "${WITH_POSTGIS:-}" ]]; then
+    db_log "Enabling PostGIS"
+    psql ${PG_CONN_PARAMETERS} -d "${db}" -c 'CREATE EXTENSION IF NOT EXISTS postgis;'
+  fi
+}
+
+############################################
+# Restore dump (encrypted or not)
+############################################
+restore_dump() {
+  local archive="$1"
+  local db="$2"
+
+  db_log "Restoring dump into ${db}"
+
+  export PGPASSWORD="${POSTGRES_PASS}"
+
+  if [[ "${DB_DUMP_ENCRYPTION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+    openssl enc -d -aes-256-cbc \
+      -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" \
+      -pbkdf2 -iter 10000 -md sha256 \
+      -in "${archive}" \
+      -out /tmp/decrypted.dump
+
+    pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump -d "${db}" ${RESTORE_ARGS}
+    rm -f /tmp/decrypted.dump
+  else
+    pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
+  fi
 }

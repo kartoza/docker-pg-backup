@@ -44,7 +44,7 @@ case "${STORAGE_BACKEND}" in
     s3_init
 
     # Always refresh globals
-    backup_globals_s3
+    backup_globals
 
     # Database + optional table-level dumps
     backup_databases "s3_upload"
@@ -52,7 +52,7 @@ case "${STORAGE_BACKEND}" in
   FILE|file)
     ENABLE_S3_BACKUP=false
 
-    backup_globals_file
+    backup_globals
     backup_databases
     ;;
   *)
