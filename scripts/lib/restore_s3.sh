@@ -65,6 +65,7 @@ s3_restore() {
       | grep -F "${DUMPPREFIX}_${target_db}.${mydate}-" \
       | awk '{print $4}' \
       | sort -r | head -n1)"
+    checksum_url="${backup_url}.sha256"
   fi
 
   [[ -z "${backup_url}" ]] && {
@@ -75,10 +76,26 @@ s3_restore() {
   restore_s3log "Using backup ${backup_url}"
 
   mkdir -p /data/dump
-  s3cmd get "${backup_url}" "/data/dump/${target_db}.dmp.gz"
+  if [[ -n "${backup_url}" ]]; then
+    s3cmd get "${backup_url}" "/data/dump/${target_db}.dmp.gz"
+  else
+    restore_s3log "No backup URL provided, skipping restore."
+  fi
 
-  gunzip -f "/data/dump/${target_db}.dmp.gz"
 
-  restore_recreate_db "${target_db}"
-  restore_dump "/data/dump/${target_db}.dmp" "${target_db}"
+  if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]];then
+    if [[ -n "${checksum_url}" ]]; then
+       s3cmd get "${checksum_url}" "/data/dump/${target_db}.dmp.sha256"
+    else
+       restore_s3log "No checksum URL provided, skipping restore."
+    fi
+  fi
+
+  if [[ -f "/data/dump/${target_db}.dmp.gz" ]];then
+    gunzip -f "/data/dump/${target_db}.dmp.gz"
+    restore_recreate_db "${target_db}"
+    restore_dump "/data/dump/${target_db}.dmp" "${target_db}"
+  fi
+
+
 }

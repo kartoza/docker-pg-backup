@@ -208,9 +208,51 @@ restore_dump() {
       -in "${archive}" \
       -out /tmp/decrypted.dump
 
+    validate_checksum "${archive}"
     pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump -d "${db}" ${RESTORE_ARGS}
     rm -f /tmp/decrypted.dump
   else
+    validate_checksum "${archive}"
     pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
   fi
+}
+
+############################################
+# Checksum validation helper
+# Usage: validate_checksum <archive_file>
+############################################
+validate_checksum() {
+  local archive="$1"
+  local checksum_file="${archive}.sha256"
+
+  # Skip if checksum validation disabled
+  [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]] || return 0
+
+  [[ -z "${archive}" ]] && {
+    db_log "ERROR: validate_checksum called without archive"
+    return 1
+  }
+
+  [[ ! -f "${archive}" ]] && {
+    db_log "ERROR: Archive not found: ${archive}"
+    return 1
+  }
+
+  [[ ! -f "${checksum_file}" ]] && {
+    db_log "ERROR: Checksum file missing: ${checksum_file}"
+    return 1
+  }
+
+  db_log "Validating checksum for $(basename "${archive}")"
+
+  (
+    cd "$(dirname "${archive}")" || exit 1
+    sha256sum -c "$(basename "${checksum_file}")"
+  ) || {
+    db_log "ERROR: Checksum validation failed for ${archive}"
+    return 1
+  }
+
+  db_log "Checksum validation passed for $(basename "${archive}")"
+  return 0
 }

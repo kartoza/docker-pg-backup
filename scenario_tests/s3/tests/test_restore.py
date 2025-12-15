@@ -16,8 +16,8 @@ class TestRestore(unittest.TestCase):
         db_name = 'gis'
 
         current_archive = datetime.now().strftime(
-            f"%Y/%B/"
-            f"{dump_prefix}_{db_name}.%d-%B-%Y-%H-%M.dmp")
+            f"{dump_prefix}_{db_name}.%d-%B-%Y-%H-%M.gz"
+        )
 
         proc = subprocess.run([
             's3cmd',
