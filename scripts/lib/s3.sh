@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
+############################################
+# Helpers
+############################################
+s3_log() {
+  log "[S3] $*"
+}
+
 s3_init() {
-  log "Initializing S3 backend"
+  s3_log "Initializing S3 backend"
 
   if [[ -f "${EXTRA_CONFIG_DIR:-}/s3cfg" ]]; then
     cp "${EXTRA_CONFIG_DIR}/s3cfg" /root/.s3cfg
@@ -12,12 +19,60 @@ s3_init() {
   s3cmd ls "s3://${BUCKET}" >/dev/null 2>&1 || s3cmd mb "s3://${BUCKET}"
 }
 
+
+
 s3_upload() {
-  local file="$1"
+  s3_log "Initializing S3 uploads"
+  local gz_file="$1"
 
-  gzip "${file}"
-  s3cmd put "${file}.gz" "s3://${BUCKET}/"
-  s3cmd put "${file}.sha256" "s3://${BUCKET}/"
 
-  rm -f "${file}.gz"
+  [[ ! -f "${gz_file}" ]] && {
+    s3_log "ERROR: Missing file ${gz_file}"
+    return 1
+  }
+
+  s3_log "Uploading $(basename "${gz_file}") to s3://${BUCKET}"
+
+
+  #s3cmd put "${gz_file}" "s3://${BUCKET}/"
+  if retry 3 s3cmd put "${gz_file}" "s3://${BUCKET}/"; then
+    cleanup_backup "${gz_file}"
+  else
+    s3_log "ERROR: Failed to upload ${gz_file} after retries"
+    return 1
+  fi
+
+  if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
+    if [[ -f "${gz_file}.sha256" ]];then
+      if retry 3 s3cmd put "${checksum_file}" "s3://${BUCKET}/"; then
+        cleanup_backup "${gz_file}.sha256"
+      else
+        s3_log "ERROR: Failed to upload checksum ${checksum_file}"
+        return 1
+      fi
+      cleanup_backup "${gz_file}.sha256"
+    fi
+  fi
+  s3_log "S3 uploads completed"
+}
+
+cleanup_backup() {
+  local gz_file="$1"
+
+  rm -f "${gz_file}"
+}
+
+retry() {
+  local attempts="$1"
+  shift
+  local delay=2
+  local n=1
+
+  until "$@"; do
+    if (( n >= attempts )); then
+      return 1
+    fi
+    sleep $(( delay * n ))
+    ((n++))
+  done
 }

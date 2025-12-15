@@ -84,10 +84,13 @@ backup_single_database() {
   mkdir -p "${MYBACKUPDIR}"
 
   if [ -z "${ARCHIVE_FILENAME:-}" ]; then
-      local filename="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp"
+      BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}"
+
     else
-      local filename="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}.dmp"
+      BASE_FILENAME="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}"
+
   fi
+  local filename="${BASE_FILENAME}.dmp"
 
   db_log "Starting backup of database ${DB}"
 
@@ -100,10 +103,16 @@ backup_single_database() {
     pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
       | encrypt_stream \
       > "${filename}"
+    if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
+      sha256sum "${filename}" > "${filename}.sha256"
+    fi
     set +o pipefail
   else
     pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
       > "${filename}"
+    if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
+      sha256sum "${filename}" > "${filename}.sha256"
+    fi
   fi
 
   db_log "Backup successful for ${DB}"
@@ -112,12 +121,16 @@ backup_single_database() {
   # Optional post-processing (S3)
   ##########################################
   if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
-    gzip -f "${filename}"
+    gzip -c -f "${filename}" > "${BASE_FILENAME}.gz"
+    if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
+      sha256sum "${BASE_FILENAME}.gz" > "${BASE_FILENAME}.gz.sha256"
+    fi
+    s3_upload "${BASE_FILENAME}.gz"
 
     if [[ -n "${post_hook}" ]]; then
-      "${post_hook}" "${filename}.gz"
+      "${post_hook}" "${BASE_FILENAME}.gz"
     fi
-  fi
+fi
 }
 
 ############################################

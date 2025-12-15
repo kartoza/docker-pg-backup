@@ -175,6 +175,9 @@ if [ -z "${CONSOLIDATE_AFTER_MINUTES}" ]; then
    CONSOLIDATE_AFTER_MINUTES=$((CONSOLIDATE_AFTER * 24 * 60))
 fi
 
+if [ -z "${CHECKSUM_VALIDATION}" ];then
+  CHECKSUM_VALIDATION=false
+fi
 
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
 if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
@@ -266,6 +269,7 @@ export YEAR="${YEAR}"
 export TIME_MINUTES="${TIME_MINUTES}"
 export CONSOLIDATE_AFTER="${CONSOLIDATE_AFTER}"
 export CONSOLIDATE_AFTER_MINUTES="${CONSOLIDATE_AFTER_MINUTES}"
+export CHECKSUM_VALIDATION=\"${CHECKSUM_VALIDATION}\"
  " > /backup-scripts/pgenv.sh
 
 echo "Start script running with these environment options"
