@@ -47,7 +47,7 @@ case "${STORAGE_BACKEND}" in
     backup_globals
 
     # Database + optional table-level dumps
-    backup_databases "s3_upload"
+    backup_databases
     ;;
   FILE|file)
     ENABLE_S3_BACKUP=false
