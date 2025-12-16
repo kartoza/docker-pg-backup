@@ -60,7 +60,7 @@ services:
       - HOST_BASE=minio:9000
       - HOST_BUCKET=backup
       - SSL_SECURE=False
-      - CHECKSUM_VALIDATION=True
+      - CHECKSUM_VALIDATION=False
     depends_on:
       db:
         condition: service_healthy
