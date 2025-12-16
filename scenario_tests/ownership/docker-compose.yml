@@ -38,6 +38,9 @@ services:
       - TARGET_ARCHIVE=/backups/latest.gis.dmp
       - WITH_POSTGIS=1
       - ARCHIVE_FILENAME=latest
+      - RUN_AS_ROOT=true
+      - DB_DUMP_ENCRYPTION=false
+      - DB_DUMP_ENCRYPTION_PASS_PHRASE="WMNfjo2Rd4yFvkLK2obCudjRkOdkJj"
       - CONSOLE_LOGGING=TRUE
     depends_on:
       pg_backup:

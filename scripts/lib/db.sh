@@ -43,7 +43,7 @@ backup_globals() {
   else
     mkdir -p "${MYBASEDIR}"
 
-    db_log "Backing up globals.sql to filesystem (${MYBACKUPDIR})"
+    db_log "Backing up globals.sql to filesystem (${MYBASEDIR})"
 
     if PGPASSWORD="${POSTGRES_PASS}" \
       pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
@@ -92,11 +92,12 @@ backup_single_database() {
   fi
   local filename="${BASE_FILENAME}.dmp"
 
-  db_log "Starting backup of database ${DB}"
+
 
   export PGPASSWORD="${POSTGRES_PASS}"
 
   if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+    db_log "Starting encrypted backup of database ${DB}"
     require_encryption_key
 
     set -o pipefail
@@ -106,16 +107,19 @@ backup_single_database() {
     if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
       sha256sum "${filename}" > "${filename}.sha256"
     fi
+    db_log "Encrypted Backup successful for ${DB}"
     set +o pipefail
   else
+    db_log "Starting backup of database ${DB}"
     pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
       > "${filename}"
     if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
       sha256sum "${filename}" > "${filename}.sha256"
     fi
+    db_log "Backup successful for ${DB}"
   fi
 
-  db_log "Backup successful for ${DB}"
+
 
   ##########################################
   # Optional post-processing (S3)
@@ -156,15 +160,17 @@ dump_tables() {
     local fqtn="${schema}.${table}"
     local out="${MYBACKUPDIR}/${DUMPPREFIX}_${fqtn}_${MYDATE}.sql"
 
-    db_log "Dumping table ${fqtn}"
+
 
     if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
       set -o pipefail
+      db_log "Dumping Encrypted table ${fqtn}"
       pg_dump ${PG_CONN_PARAMETERS} -d "${DATABASE}" -t "${fqtn}" \
         | encrypt_stream \
         > "${out}"
       set +o pipefail
     else
+      db_log "Dumping table ${fqtn}"
       pg_dump ${PG_CONN_PARAMETERS} -d "${DATABASE}" -t "${fqtn}" \
         > "${out}"
     fi
@@ -197,11 +203,12 @@ restore_dump() {
   local archive="$1"
   local db="$2"
 
-  db_log "Restoring dump into ${db}"
+
 
   export PGPASSWORD="${POSTGRES_PASS}"
 
   if [[ "${DB_DUMP_ENCRYPTION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+    db_log "Restoring encrypted dump into ${db}"
     openssl enc -d -aes-256-cbc \
       -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" \
       -pbkdf2 -iter 10000 -md sha256 \
@@ -212,6 +219,7 @@ restore_dump() {
     pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump -d "${db}" ${RESTORE_ARGS}
     rm -f /tmp/decrypted.dump
   else
+    db_log "Restoring dump into ${db}"
     validate_checksum "${archive}"
     pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
   fi
