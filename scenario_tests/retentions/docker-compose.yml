@@ -2,11 +2,10 @@
 volumes:
   pg-backup-data-dir:
   pg-data-dir:
-  minio_data:
 
 services:
 
-  db:
+  pg_backup:
     image: kartoza/postgis:18-3.6
     restart: 'always'
     volumes:
@@ -15,27 +14,12 @@ services:
       - POSTGRES_DB=gis
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
-      - ACTIVATE_CRON=False
+      - ACTIVATE_CRON=FALSE
     healthcheck:
       interval: 60s
       timeout: 30s
       retries: 3
-      test: "pg_isready"
-
-  minio:
-    image: quay.io/minio/minio
-    environment:
-      - MINIO_ROOT_USER=minio_admin
-      - MINIO_ROOT_PASSWORD=secure_minio_secret
-    entrypoint: /bin/bash
-    command: -c 'minio server /data --console-address ":9001"'
-    volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    healthcheck:
-      test: curl --fail -s http://localhost:9000/ || exit 1
+      test: "PGPASSWORD=docker pg_isready -h 127.0.0.1 -U docker -d gis"
 
   pg_restore:
     image: kartoza/pg-backup:${TAG:-manual-build}
@@ -46,27 +30,23 @@ services:
       - ../utils:/lib/utils
     environment:
       - DUMPPREFIX=PG_gis
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=pg_backup
       - POSTGRES_USER=docker
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
       - TARGET_DB=data
+      - TARGET_ARCHIVE=/backups/latest.gis.dmp
       - WITH_POSTGIS=1
-      - STORAGE_BACKEND=S3
-      - ACCESS_KEY_ID=minio_admin
-      - SECRET_ACCESS_KEY=secure_minio_secret
-      - DEFAULT_REGION=us-west-2
-      - BUCKET=backups
-      - HOST_BASE=minio:9000
-      - HOST_BUCKET=backup
-      - SSL_SECURE=False
+      - ARCHIVE_FILENAME=latest
+      - RUN_AS_ROOT=true
+      - DB_DUMP_ENCRYPTION=false
+      - DB_DUMP_ENCRYPTION_PASS_PHRASE="WMNfjo2Rd4yFvkLK2obCudjRkOdkJj"
+      - CONSOLE_LOGGING=TRUE
     depends_on:
-      db:
+      pg_backup:
         condition: service_healthy
-      minio:
-        condition: service_started
     healthcheck:
       interval: 60s
       timeout: 30s
       retries: 3
-      test: "pg_isready"
+      test: "PGPASSWORD=docker pg_isready -h 127.0.0.1 -U docker -d gis"
