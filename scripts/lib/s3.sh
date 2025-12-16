@@ -24,6 +24,7 @@ s3_init() {
 s3_upload() {
   s3_log "Initializing S3 uploads"
   local gz_file="$1"
+  local checksum_file="${gz_file}.sha256"
 
 
   [[ ! -f "${gz_file}" ]] && {
@@ -43,7 +44,7 @@ s3_upload() {
   fi
 
   if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
-    if [[ -f "${gz_file}.sha256" ]];then
+    if [[ -f "${checksum_file}" ]];then
       if retry 3 s3cmd put "${checksum_file}" "s3://${BUCKET}/"; then
         cleanup_backup "${gz_file}.sha256"
       else
