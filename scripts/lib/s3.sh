@@ -35,7 +35,6 @@ s3_upload() {
   s3_log "Uploading $(basename "${gz_file}") to s3://${BUCKET}"
 
 
-
   if retry 3 s3cmd put "${gz_file}" "s3://${BUCKET}/"; then
     cleanup_backup "${gz_file}"
   else
