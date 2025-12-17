@@ -14,18 +14,22 @@ restore_filelog() {
 # File restore
 ############################################
 file_restore() {
-  [[ -z "${TARGET_ARCHIVE:-}" || ! -f "${TARGET_ARCHIVE}" ]] && {
-    restore_filelog "ERROR: TARGET_ARCHIVE missing or invalid"
-    exit 1
+  [[ -z "${TARGET_ARCHIVE:-}" ]] && {
+    restore_log "ERROR: TARGET_ARCHIVE required"
+    return 1
   }
 
   [[ -z "${TARGET_DB:-}" ]] && {
-    restore_filelog "ERROR: TARGET_DB not set"
-    exit 1
+    restore_log "ERROR: TARGET_DB required"
+    return 1
   }
 
-  restore_filelog "File restore: archive=${TARGET_ARCHIVE} db=${TARGET_DB}"
+  local archive="${TARGET_ARCHIVE}"
+
+  validate_checksum "${archive}" || return 1
 
   restore_recreate_db "${TARGET_DB}"
-  restore_dump "${TARGET_ARCHIVE}" "${TARGET_DB}"
+  restore_dump "${archive}" "${TARGET_DB}"
+
+  restore_log "File restore completed for ${TARGET_DB}"
 }

@@ -63,6 +63,9 @@ services:
       - HOST_BASE=minio:9000
       - HOST_BUCKET=backup
       - SSL_SECURE=False
+      - DB_DUMP_ENCRYPTION=True
+      - DB_DUMP_ENCRYPTION_PASS_PHRASE="WMNfjo2Rd4yFvkLK2obCudjRkOdkJj"
+      - CHECKSUM_VALIDATION=True
     depends_on:
       pg_backup:
         condition: service_healthy
