@@ -56,25 +56,3 @@ s3_upload() {
   s3_log "S3 uploads completed"
 }
 
-cleanup_backup() {
-  local gz_file="$1"
-  if [[ -f "${gz_file}"  ]]; then
-    rm -rf "${gz_file}"
-    s3_log "Deleting file ${gz_file}"
-  fi
-}
-
-retry() {
-  local attempts="$1"
-  shift
-  local delay=2
-  local n=1
-
-  until "$@"; do
-    if (( n >= attempts )); then
-      return 1
-    fi
-    sleep $(( delay * n ))
-    ((n++))
-  done
-}

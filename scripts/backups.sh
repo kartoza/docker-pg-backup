@@ -18,6 +18,7 @@ source "${LIB_DIR}/db.sh"
 source "${LIB_DIR}/encryption.sh"
 source "${LIB_DIR}/s3.sh"
 source "${LIB_DIR}/retention.sh"
+source "${LIB_DIR}/utils.sh"
 
 ############################################
 # Traps

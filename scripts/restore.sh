@@ -23,6 +23,7 @@ source "${LIB_DIR}/retention.sh"
 source "${LIB_DIR}/restore.sh"
 source "${LIB_DIR}/restore_s3.sh"
 source "${LIB_DIR}/restore_file.sh"
+source "${LIB_DIR}/utils.sh"
 
 ############################################
 # Traps
