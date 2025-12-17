@@ -30,72 +30,97 @@ s3_restore() {
   local input_date="$1"
   local target_db="$2"
 
-  [[ -z "${input_date}" || -z "${target_db}" ]] && {
-    restore_s3log "ERROR: restore requires <date> <db>"
-    exit 1
+  [[ -z "${target_db}" ]] && {
+    restore_s3log "ERROR: target_db is required"
+    return 1
   }
 
-  restore_s3log "S3 restore requested: date=${input_date} db=${target_db}"
+  restore_s3log "S3 restore requested: date='${input_date:-AUTO}' db=${target_db}"
 
-  local date_part hour minute mydate month year
-  local backup_url
+  local backup_key=""
+  local checksum_key=""
+  local workdir="/data/dump"
 
-  if [[ "${input_date}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}$ ]]; then
-    date_part="${input_date%-*-*}"
-    hour="${input_date#*-*-*-}"
-    hour="${hour%-*}"
-    minute="${input_date##*-}"
-    mydate="$(date -d "${date_part}" +%d-%B-%Y)-${hour}-${minute}"
-  else
-    date_part="${input_date}"
-    mydate="$(date -d "${date_part}" +%d-%B-%Y)"
-  fi
+  mkdir -p "${workdir}"
 
-  month="$(date -d "${date_part}" +%B)"
-  year="$(date -d "${date_part}" +%Y)"
-
-  MYBASEDIR="/${BUCKET}"
-  MYBACKUPDIR="${MYBASEDIR}/${year}/${month}"
-
-  backup_url="s3://${MYBACKUPDIR}/${DUMPPREFIX}_${target_db}.${mydate}.dmp.gz"
-
-  if [[ ! "${input_date}" =~ -[0-9]{2}-[0-9]{2}$ ]]; then
-    restore_s3log "Finding latest backup for ${date_part}"
-    backup_url="$(s3cmd ls "s3://${MYBACKUPDIR}/" \
-      | grep -F "${DUMPPREFIX}_${target_db}.${mydate}-" \
-      | awk '{print $4}' \
-      | sort -r | head -n1)"
-    checksum_url="${backup_url}.sha256"
-  fi
-
-  [[ -z "${backup_url}" ]] && {
-    restore_s3log "ERROR: No backup found"
-    exit 1
-  }
-
-  restore_s3log "Using backup ${backup_url}"
-
-  mkdir -p /data/dump
-  if [[ -n "${backup_url}" ]]; then
-    s3cmd get "${backup_url}" "/data/dump/${target_db}.dmp.gz"
-  else
-    restore_s3log "No backup URL provided, skipping restore."
-  fi
-
-
-  if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]];then
-    if [[ -n "${checksum_url}" ]]; then
-       s3cmd get "${checksum_url}" "/data/dump/${target_db}.dmp.sha256"
+  ############################################
+  # 1. ARCHIVE_FILENAME override (authoritative)
+  ############################################
+  if [[ -n "${TARGET_ARCHIVE:-}" ]]; then
+    filename="$(normalize_archive "${TARGET_ARCHIVE}")"
+    if [[ "$filename" != *.gz ]]; then
+      backup_key="${filename}.gz"
     else
-       restore_s3log "No checksum URL provided, skipping restore."
+      backup_key="${filename}"
+    fi
+
+    restore_s3log "Using ARCHIVE_FILENAME override: ${backup_key}"
+
+  ############################################
+  # 2. Date-based resolution
+  ############################################
+  else
+    [[ -z "${input_date}" ]] && {
+      restore_s3log "ERROR: date required when ARCHIVE_FILENAME not set"
+      return 1
+    }
+
+    local date_part hour minute mydate month year
+    date_part="${input_date:0:10}"
+
+    month="$(date -d "${date_part}" +%B)"
+    year="$(date -d "${date_part}" +%Y)"
+
+    local s3_dir="${year}/${month}"
+
+    # Exact timestamp YYYY-MM-DD-HH-MM
+    if [[ "${input_date}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}$ ]]; then
+      hour="${input_date:11:2}"
+      minute="${input_date:14:2}"
+      mydate="$(date -d "${date_part}" +%d-%B-%Y)-${hour}-${minute}"
+      backup_key="${s3_dir}/${DUMPPREFIX}_${target_db}.${mydate}.dmp.gz"
+
+    # Latest-of-day
+    else
+      mydate="$(date -d "${date_part}" +%d-%B-%Y)"
+      restore_s3log "Finding latest backup for ${date_part}"
+
+      backup_key="$(
+        s3cmd ls "s3://${BUCKET}/${s3_dir}/" \
+          | awk '{print $4}' \
+          | grep -F "${DUMPPREFIX}_${target_db}.${mydate}-" \
+          | grep '\.dmp\.gz$' \
+          | sort -r | head -n1
+      )"
+
+      backup_key="${backup_key#s3://${BUCKET}/}"
     fi
   fi
 
-  if [[ -f "/data/dump/${target_db}.dmp.gz" ]];then
-    gunzip -f "/data/dump/${target_db}.dmp.gz"
-    restore_recreate_db "${target_db}"
-    restore_dump "/data/dump/${target_db}.dmp" "${target_db}"
+  [[ -z "${backup_key}" ]] && {
+    restore_s3log "ERROR: Could not resolve backup archive"
+    return 1
+  }
+
+  checksum_key="${backup_key}.sha256"
+
+  restore_s3log "Resolved archive: s3://${BUCKET}/${backup_key}"
+
+  ############################################
+  # 3. Download archive (+ checksum)
+  ############################################
+  s3cmd get "s3://${BUCKET}/${backup_key}" "${workdir}/restore.dmp.gz"
+
+  if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+    restore_s3log "Downloading checksum for ${target_db} "
+    s3cmd get "s3://${BUCKET}/${checksum_key}" "${workdir}/restore.dmp.gz.sha256"
+    validate_checksum "${workdir}/restore.dmp.gz.sha256"  || return 1
+    restore_s3log "Checksum download and validation completed successfully for ${target_db}"
   fi
+  gunzip -f "${workdir}/restore.dmp.gz"
+  restore_recreate_db "${target_db}"
+  restore_dump "${workdir}/restore.dmp" "${target_db}"
+  restore_s3log "Restore completed successfully for ${target_db}"
 
 
 }

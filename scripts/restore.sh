@@ -37,6 +37,9 @@ init_logging
 
 log "Restore job started"
 
-run_restore "$@"
+if [[ -n "${TARGET_DB}" ]]; then
+  run_restore "${TARGET_ARCHIVE}" "${TARGET_DB}"
+fi
+
 
 log "Restore job finished"

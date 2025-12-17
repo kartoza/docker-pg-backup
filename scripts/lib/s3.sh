@@ -59,8 +59,10 @@ s3_upload() {
 
 cleanup_backup() {
   local gz_file="$1"
-
-  rm -f "${gz_file}"
+  if [[ -f "${gz_file}"  ]]; then
+    rm -rf "${gz_file}"
+    s3_log "Deleting file ${gz_file}"
+  fi
 }
 
 retry() {

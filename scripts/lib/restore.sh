@@ -19,7 +19,7 @@ run_restore() {
   case "${STORAGE_BACKEND}" in
     S3|s3)
       s3_restore_init
-      s3_restore "$@"
+      s3_restore "$@" "$@"
       ;;
     FILE|file)
       file_restore "$@"

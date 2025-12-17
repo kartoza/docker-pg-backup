@@ -125,14 +125,18 @@ backup_single_database() {
   # Optional post-processing (S3)
   ##########################################
   if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
-    gzip -c -f "${filename}" > "${BASE_FILENAME}.gz"
+    gzip -c -f "${filename}" > "${BASE_FILENAME}.dmp.gz"
+
     if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
-      sha256sum "${BASE_FILENAME}.gz" > "${BASE_FILENAME}.gz.sha256"
+      sha256sum "${BASE_FILENAME}.dmp.gz" > "${BASE_FILENAME}.dmp.gz.sha256"
     fi
-    s3_upload "${BASE_FILENAME}.gz"
+    s3_upload "${BASE_FILENAME}.dmp.gz"
+
+    cleanup_file "${filename}"
+    cleanup_file "${BASE_FILENAME}.dmp.gz.sha256"
 
     if [[ -n "${post_hook}" ]]; then
-      "${post_hook}" "${BASE_FILENAME}.gz"
+      "${post_hook}" "${BASE_FILENAME}.dmp.gz"
     fi
 fi
 }
@@ -203,8 +207,6 @@ restore_dump() {
   local archive="$1"
   local db="$2"
 
-
-
   export PGPASSWORD="${POSTGRES_PASS}"
 
   if [[ "${DB_DUMP_ENCRYPTION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
@@ -215,12 +217,10 @@ restore_dump() {
       -in "${archive}" \
       -out /tmp/decrypted.dump
 
-    validate_checksum "${archive}"
     pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump -d "${db}" ${RESTORE_ARGS}
     rm -f /tmp/decrypted.dump
   else
     db_log "Restoring dump into ${db}"
-    validate_checksum "${archive}"
     pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
   fi
 }
@@ -231,12 +231,11 @@ restore_dump() {
 ############################################
 validate_checksum() {
   local archive="$1"
-  local checksum_file="${archive}.sha256"
 
-  # Skip if checksum validation disabled
+  # Skip entirely if checksum validation disabled
   [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]] || return 0
 
-  [[ -z "${archive}" ]] && {
+  [[ -z "${archive:-}" ]] && {
     db_log "ERROR: validate_checksum called without archive"
     return 1
   }
@@ -246,6 +245,15 @@ validate_checksum() {
     return 1
   }
 
+  local checksum_file
+
+  # If caller passed .sha256 explicitly, use it
+  if [[ "${archive}" == *.sha256 ]]; then
+    checksum_file="${archive}"
+  else
+    checksum_file="${archive}.sha256"
+  fi
+
   [[ ! -f "${checksum_file}" ]] && {
     db_log "ERROR: Checksum file missing: ${checksum_file}"
     return 1
@@ -253,14 +261,32 @@ validate_checksum() {
 
   db_log "Validating checksum for $(basename "${archive}")"
 
-  (
-    cd "$(dirname "${archive}")" || exit 1
-    sha256sum -c "$(basename "${checksum_file}")"
-  ) || {
-    db_log "ERROR: Checksum validation failed for ${archive}"
+  sha256sum -c "${checksum_file}" >/dev/null 2>&1 || {
+    db_log "ERROR: Checksum validation FAILED for $(basename "${archive}")"
     return 1
   }
 
-  db_log "Checksum validation passed for $(basename "${archive}")"
+  db_log "Checksum validation PASSED for $(basename "${archive}")"
   return 0
+}
+
+cleanup_file() {
+  local file="$1"
+
+  if [[ -f "${file}"  ]]; then
+    rm -rf "${file}"
+    db_log "Deleting file ${file}"
+  fi
+}
+
+normalize_archive() {
+  local path="$1"
+
+  [[ -z "${path:-}" ]] && {
+    db_log "ERROR: normalize_archive called without argument"
+    return 1
+  }
+
+  # Equivalent to Python os.path.basename()
+  echo "${path##*/}"
 }
