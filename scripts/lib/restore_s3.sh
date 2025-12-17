@@ -109,17 +109,18 @@ s3_restore() {
   ############################################
   # 3. Download archive (+ checksum)
   ############################################
-  s3cmd get "s3://${BUCKET}/${backup_key}" "${workdir}/restore.dmp.gz"
+  s3cmd get "s3://${BUCKET}/${backup_key}" "${workdir}/${backup_key}"
 
   if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
     restore_s3log "Downloading checksum for ${target_db} "
-    s3cmd get "s3://${BUCKET}/${checksum_key}" "${workdir}/restore.dmp.gz.sha256"
-    validate_checksum "${workdir}/restore.dmp.gz.sha256"  || return 1
+    s3cmd get "s3://${BUCKET}/${checksum_key}" "${workdir}/${checksum_key}"
+    validate_checksum "${workdir}/${checksum_key}"  || return 1
     restore_s3log "Checksum download and validation completed successfully for ${target_db}"
   fi
-  gunzip -f "${workdir}/restore.dmp.gz"
+  gunzip -f "${workdir}/${backup_key}"
+
   restore_recreate_db "${target_db}"
-  restore_dump "${workdir}/restore.dmp" "${target_db}"
+  restore_dump "${workdir}/${backup_key%.gz}" "${target_db}"
   restore_s3log "Restore completed successfully for ${target_db}"
 
 

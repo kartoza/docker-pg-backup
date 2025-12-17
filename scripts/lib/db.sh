@@ -83,64 +83,56 @@ backup_single_database() {
 
   mkdir -p "${MYBACKUPDIR}"
 
-  if [ -z "${ARCHIVE_FILENAME:-}" ]; then
-      BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}"
-
-    else
-      BASE_FILENAME="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}"
-
+  if [[ -z "${ARCHIVE_FILENAME:-}" ]]; then
+    BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}"
+  else
+    BASE_FILENAME="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}"
   fi
-  local filename="${BASE_FILENAME}.dmp"
 
-
+  local dump_file="${BASE_FILENAME}.dmp"
+  local gz_file="${BASE_FILENAME}.dmp.gz"
 
   export PGPASSWORD="${POSTGRES_PASS}"
 
-  if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-    db_log "Starting encrypted backup of database ${DB}"
-    require_encryption_key
+  db_log "Starting backup of database ${DB}"
 
+  if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+    require_encryption_key
     set -o pipefail
     pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
-      | encrypt_stream \
-      > "${filename}"
-    if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
-      sha256sum "${filename}" > "${filename}.sha256"
-    fi
-    db_log "Encrypted Backup successful for ${DB}"
+      | encrypt_stream > "${dump_file}"
     set +o pipefail
   else
-    db_log "Starting backup of database ${DB}"
-    pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
-      > "${filename}"
-    if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
-      sha256sum "${filename}" > "${filename}.sha256"
-    fi
-    db_log "Backup successful for ${DB}"
+    pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" > "${dump_file}"
   fi
 
-
+  db_log "Backup successful for ${DB}"
 
   ##########################################
-  # Optional post-processing (S3)
+  # S3 post-processing
   ##########################################
   if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
-    gzip -c -f "${filename}" > "${BASE_FILENAME}.dmp.gz"
+    gzip -c -f "${dump_file}" > "${gz_file}"
 
-    if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
-      sha256sum "${BASE_FILENAME}.dmp.gz" > "${BASE_FILENAME}.dmp.gz.sha256"
+    if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      generate_gz_checksum "${gz_file}"
     fi
-    s3_upload "${BASE_FILENAME}.dmp.gz"
 
-    cleanup_file "${filename}"
-    cleanup_file "${BASE_FILENAME}.dmp.gz.sha256"
+    s3_upload "${gz_file}"
+
+    cleanup_file "${dump_file}"
+    cleanup_file "${gz_file}.sha256"
 
     if [[ -n "${post_hook}" ]]; then
-      "${post_hook}" "${BASE_FILENAME}.dmp.gz"
+      "${post_hook}" "${gz_file}"
     fi
-fi
+  else
+    # FILE backend: optional checksum on raw dump
+    if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      sha256sum "${filename}" > "${filename}.sha256"
+    fi
+  fi
 }
-
 ############################################
 # Table-level dumps
 ############################################
@@ -289,4 +281,18 @@ normalize_archive() {
 
   # Equivalent to Python os.path.basename()
   echo "${path##*/}"
+}
+
+generate_gz_checksum() {
+  local gz_file="$1"
+
+  [[ ! -f "${gz_file}" ]] && {
+    db_log "ERROR: Cannot checksum missing file ${gz_file}"
+    return 1
+  }
+
+  (
+    cd "$(dirname "${gz_file}")" || return 1
+    sha256sum "$(basename "${gz_file}")" > "$(basename "${gz_file}").sha256"
+  )
 }
