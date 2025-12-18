@@ -23,38 +23,40 @@ s3_init() {
 
 s3_upload() {
   s3_log "Initializing S3 uploads"
-  local gz_file="$1"
-  local path="${gz_file#/}"
-  local key="${path#${BUCKET}/}"
-  local checksum_file="${gz_file}.sha256"
 
+  local gz_file="$1"
 
   [[ ! -f "${gz_file}" ]] && {
     s3_log "ERROR: Missing file ${gz_file}"
     return 1
   }
 
-  s3_log "Uploading $(basename "${gz_file}") to s3://${BUCKET}"
+  # Normalize path → S3 key
+  local path="${gz_file#/}"
+  local gz_key="${path#${BUCKET}/}"
+  local checksum_file="${gz_file}.sha256"
+  local checksum_key="${gz_key}.sha256"
 
+  s3_log "Uploading $(basename "${gz_file}") to s3://${BUCKET}/${gz_key}"
 
-  if retry 3 s3cmd put "${gz_file}" "s3://${BUCKET}/${key}"; then
-    cleanup_backup "${gz_file}"
-  else
-    s3_log "ERROR: Failed to upload ${gz_file} after retries"
+  # Upload gzip
+  if ! retry 3 s3cmd put "${gz_file}" "s3://${BUCKET}/${gz_key}"; then
+    s3_log "ERROR: Failed to upload ${gz_file}"
     return 1
   fi
 
-  if [[ "${CHECKSUM_VALIDATION}" =~ [Tt][Rr][Uu][Ee] ]];then
-    if [[ -f "${checksum_file}" ]];then
-      if retry 3 s3cmd put "${checksum_file}" "s3://${BUCKET}/${key}"; then
-        cleanup_backup "${gz_file}.sha256"
-      else
-        s3_log "ERROR: Failed to upload checksum ${checksum_file}"
-        return 1
-      fi
-      cleanup_backup "${gz_file}.sha256"
+  # Upload checksum (only if enabled and exists)
+  if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]] && [[ -f "${checksum_file}" ]]; then
+    s3_log "Uploading checksum $(basename "${checksum_file}")"
+
+    if retry 3 s3cmd put "${checksum_file}" "s3://${BUCKET}/${checksum_key}"; then
+      cleanup_backup "${checksum_file}"
+    else
+      s3_log "ERROR: Failed to upload checksum ${checksum_file}"
+      return 1
     fi
   fi
+
   s3_log "S3 uploads completed"
 }
 
