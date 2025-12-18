@@ -11,11 +11,15 @@ if [[ $(dpkg -l | grep "docker-compose") > /dev/null ]];then
   else
     VERSION='docker compose'
 fi
+
+################################################
+# Perform DB backup to s3 endpoint using
+# directory structure i.e 2025/June/PG_gis.dmp.gz
+#################################################
 ${VERSION} up -d
 
 sleep 30
 
-# Perform DB backup to s3 endpoint
 ${VERSION} exec pg_restore  /backup-scripts/backups.sh
 
 # Execute tests
@@ -24,9 +28,32 @@ ${VERSION} exec pg_restore /bin/bash /tests/test_upload.sh
 
 ${VERSION} down -v
 
-# Update the docker compose and check if
+################################################
+# Perform DB backup to s3 endpoint using
+# ARCHIVE_FILENAME=latest
+#################################################
+${VERSION} -f docker-compose-latest.yml up -d
+
+sleep 30
+
+${VERSION} -f docker-compose-latest.yml exec pg_restore  /backup-scripts/backups.sh
+
+# Execute tests
+${VERSION} -f docker-compose-latest.yml exec pg_restore /bin/bash /tests/test_upload.sh
+
+
+${VERSION} -f docker-compose-latest.yml down -v
+################################################
+# Perform DB backup to s3 endpoint using
+# directory structure i.e 2025/June/PG_gis.dmp.gz
+# Also check if checksum is uploaded correctly
+#################################################
 
 sed -i 's/CHECKSUM_VALIDATION=False/CHECKSUM_VALIDATION=True/' docker-compose.yml
+
+${VERSION} up -d
+
+sleep 30
 # Perform DB backup to s3 endpoint this time with checksum
 ${VERSION} exec pg_restore  /backup-scripts/backups.sh
 
