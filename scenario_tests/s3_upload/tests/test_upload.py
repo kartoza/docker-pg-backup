@@ -1,7 +1,7 @@
+import logging
+import os
 import subprocess
 import unittest
-import os
-import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -14,10 +14,18 @@ class TestUpload(unittest.TestCase):
         self.dump_prefix = os.environ.get('DUMPPREFIX')
         self.checksum_validation = os.environ.get('CHECKSUM_VALIDATION')
         self.bucket = os.environ["BUCKET"]
-        self.process = subprocess.run(["s3cmd", "ls", f"s3://{self.bucket}/"], capture_output=True, text=True,
-                                      check=True)
+        self.current_date = datetime.now()
+        self.key = f"{self.current_date.year}/{self.current_date.strftime('%B')}"
+        self.archive_name = os.environ.get("ARCHIVE_FILENAME")
+        if self.archive_name is None:
+            self.process = subprocess.run(["s3cmd", "ls", f"s3://{self.bucket}/{self.key}/"], capture_output=True,
+                                          text=True,
+                                          check=True)
+        else:
+            self.process = subprocess.run(["s3cmd", "ls", f"s3://{self.bucket}/"], capture_output=True, text=True,
+                                          check=True)
 
-    def test_compressed_backup_uploaded(self):
+    def test_backups_uploaded(self):
         """
         Checks if the s3 backup has was successful and the compressed dump file has been
         uploaded to the S3 backend bucket.
@@ -38,15 +46,22 @@ class TestUpload(unittest.TestCase):
 
         proc = self.process
 
-        archives = [
-            line.split()[-1]
-            for line in proc.stdout.splitlines()
-            if line.endswith(".gz") and self.dump_prefix in line
-        ]
+        archives = []
+
+        for line in proc.stdout.splitlines():
+            parts = line.split()
+            if not parts:
+                continue
+
+            path = parts[-1]
+
+            if path.endswith(".gz") or self.dump_prefix in path:
+                archives.append(path)
 
         self.assertTrue(archives)
 
         latest = sorted(archives)[-1]
+
         logger.debug(f"Found archive: {latest}")
 
         latest = sorted(archives)[-1]
@@ -78,6 +93,7 @@ class TestUpload(unittest.TestCase):
 
         # checksum validation is disabled — we must ensure no .sha256 files exist.
         proc = self.process
+
         objects = [line.split()[-1] for line in proc.stdout.splitlines()]
 
         checksum_files = [o for o in objects if o.endswith(".sha256")]
@@ -86,4 +102,3 @@ class TestUpload(unittest.TestCase):
             checksum_files,
             f"Checksum files found when validation disabled: {checksum_files}"
         )
-
