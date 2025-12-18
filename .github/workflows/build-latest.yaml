@@ -76,7 +76,7 @@ jobs:
           - file_restore
           - s3_upload
           - s3_restore
-          - retentions
+          - ownership
     steps:
       - uses: actions/checkout@v6
       - name: Download artifact

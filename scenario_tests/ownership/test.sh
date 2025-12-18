@@ -12,7 +12,9 @@ if [[ $(dpkg -l | grep "docker-compose") > /dev/null ]];then
     VERSION='docker compose'
 fi
 
-# Run as root
+################################################
+# Perform DB backup and restore using gosu
+#################################################
 ${VERSION} up -d
 
 sleep 120
@@ -30,42 +32,4 @@ ${VERSION} exec pg_restore /bin/bash /tests/test_restore.sh
 ${VERSION} down -v
 
 
-# Run as non root
-sed -i 's/RUN_AS_ROOT\=true/RUN_AS_ROOT\=false/g' docker-compose.yml
-${VERSION} up -d
 
-sleep 120
-
-# Backup DB
-${VERSION} exec pg_restore  /backup-scripts/backups.sh
-
-# Restore DB backup
-${VERSION} exec pg_restore  /backup-scripts/restore.sh
-
-# Execute tests
-${VERSION} exec pg_restore /bin/bash /tests/test_restore.sh
-
-
-${VERSION} down -v
-
-sed -i 's/RUN_AS_ROOT\=false/RUN_AS_ROOT\=true/g' docker-compose.yml
-
-# Run with encryption
-sed -i 's/DB_DUMP_ENCRYPTION\=false/DB_DUMP_ENCRYPTION\=true/g' docker-compose.yml
-${VERSION} up -d
-
-sleep 120
-
-# Backup DB
-${VERSION} exec pg_restore  /backup-scripts/backups.sh
-
-# Restore DB backup
-${VERSION} exec pg_restore  /backup-scripts/restore.sh
-
-# Execute tests
-${VERSION} exec pg_restore /bin/bash /tests/test_restore.sh
-
-
-${VERSION} down -v
-
-sed -i 's/DB_DUMP_ENCRYPTION\=true/DB_DUMP_ENCRYPTION\=false/g' docker-compose.yml
