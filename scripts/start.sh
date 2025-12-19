@@ -191,18 +191,31 @@ if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   export DB_DUMP_ENCRYPTION_PASS_PHRASE
 fi
 
+build_cron() {
+  if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+    CRON_LOG_REDIRECT=">> /proc/1/fd/1 2>&1"
+  else
+    CRON_LOG_REDIRECT=">> /var/log/cron.out 2>&1"
+    mkdir -p /var/log
+    touch /var/log/cron.out
+  fi
+
+  cat > /backup-scripts/backups-cron <<EOF
+${CRON_SCHEDULE} /bin/bash /backup-scripts/backups.sh ${CRON_LOG_REDIRECT}
+
+EOF
+}
+
 
 function cron_config() {
-  if [[ -f ${EXTRA_CONFIG_DIR}/backups-cron ]]; then
-      envsubst < ${EXTRA_CONFIG_DIR}/backups-cron > /backup-scripts/backups-cron
+  if [[ -f "${EXTRA_CONFIG_DIR}/backups-cron" ]]; then
+    envsubst < "${EXTRA_CONFIG_DIR}/backups-cron" > /backup-scripts/backups-cron
   else
-      # default value
+    if [[ -z "${CRON_SCHEDULE}" ]]; then
+      export CRON_SCHEDULE='0 23 * * *'
+    fi
 
-      if [ -z "${CRON_SCHEDULE}" ]; then
-        export CRON_SCHEDULE='0 23 * * *'
-      fi
-      envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
-
+    build_cron
   fi
 }
 
@@ -283,7 +296,11 @@ set | grep PG
 }
 configure_env_variables
 
-
+if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
+   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/proc/1/fd/1 2>\&1#g' /backup-scripts/backups.sh
+else
+   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/var/log/cron.out 2>\&1#g' /backup-scripts/backups.sh
+fi
 
 # Fix variables not interpolated
 sed -i "s/'//g" /backup-scripts/backups-cron
@@ -315,25 +332,33 @@ if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
 
 fi
 
-if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
-  user="root"
-  group="root"
-  cron_tab_command="crontab /backup-scripts/backups-cron"
-  cron_command="cron -f"
-else
-  user="${USER_NAME}"
-  group="${DB_GROUP_NAME}"
-  cron_tab_command="crontab -u ${user} /backup-scripts/backups-cron"
-  cron_command="gosu ${USER_NAME} cron -f"
-fi
+setup_cron_env() {
+  if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
+    user="root"
+    group="root"
+    cron_tab_command="crontab /backup-scripts/backups-cron"
+    cron_command="cron -f"
+  else
+    user="${USER_NAME}"
+    group="${DB_GROUP_NAME}"
+    cron_tab_command="crontab -u ${user} /backup-scripts/backups-cron"
+    cron_command="gosu ${user} cron -f"
+  fi
+}
 
-non_root_permission "${user}" "${group}"
+run_backup() {
+  non_root_permission "${user}" "${group}"
 
-if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
-  /backup-scripts/backups.sh
-else
-  chmod gu+rw /var/run
-  chmod gu+s /usr/sbin/cron
-  ${cron_tab_command}
-  ${cron_command}
-fi
+  if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
+    /backup-scripts/backups.sh
+  else
+    chmod gu+rw /var/run
+    chmod gu+s /usr/sbin/cron
+    eval "${cron_tab_command}"
+    eval "${cron_command}"
+  fi
+}
+
+# Main Entrypoint
+setup_cron_env
+run_backup
