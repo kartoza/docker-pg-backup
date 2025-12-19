@@ -117,10 +117,20 @@ s3_restore() {
     validate_checksum "${workdir}/${checksum_key}"  || return 1
     restore_s3log "Checksum download and validation completed successfully for ${target_db}"
   fi
-  gunzip -f "${workdir}/${backup_key}"
+  if [[ ${backup_key} == *.tar.gz ]];then
+    tar -xzf "${workdir}/${backup_key}" -C "${workdir}" || {
+      restore_log "ERROR: Failed to extract ${backup_key}"
+      return 1
+    }
+    restore_recreate_db "${target_db}"
+    restore_dump "${workdir}/${backup_key%.tar.gz}" "${target_db}"
+  else
+    gunzip -f "${workdir}/${backup_key}"
+    restore_recreate_db "${target_db}"
+    restore_dump "${workdir}/${backup_key%.gz}" "${target_db}"
+  fi
 
-  restore_recreate_db "${target_db}"
-  restore_dump "${workdir}/${backup_key%.gz}" "${target_db}"
+
   restore_s3log "Restore completed successfully for ${target_db}"
 
 

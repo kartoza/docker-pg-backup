@@ -13,9 +13,27 @@ db_log() {
 # Readiness check
 ############################################
 check_db_ready() {
-  db_log "Checking database readiness"
-  PGPASSWORD="${POSTGRES_PASS}" \
-    psql ${PG_CONN_PARAMETERS} -d postgres -c "SELECT 1" >/dev/null
+  local max_wait="${DB_READY_TIMEOUT:-20}"
+  local interval=2
+  local elapsed=0
+
+  db_log "Checking database readiness (timeout=${max_wait}s)"
+
+  while true; do
+    if PGPASSWORD="${POSTGRES_PASS}" \
+       psql ${PG_CONN_PARAMETERS} -d postgres -c "SELECT 1" >/dev/null 2>&1; then
+      db_log "Database is ready"
+      return 0
+    fi
+
+    if (( elapsed >= max_wait )); then
+      db_log "ERROR: Database not ready after ${max_wait}s"
+      return 1
+    fi
+
+    sleep "${interval}"
+    elapsed=$(( elapsed + interval ))
+  done
 }
 
 ############################################
@@ -89,49 +107,91 @@ backup_single_database() {
     BASE_FILENAME="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}"
   fi
 
-  local dump_file="${BASE_FILENAME}.dmp"
-  local gz_file="${BASE_FILENAME}.dmp.gz"
-
   export PGPASSWORD="${POSTGRES_PASS}"
 
-  db_log "Starting backup of database ${DB}"
+  ##########################################
+  # Detect dump format
+  ##########################################
+  FORMAT="$(get_dump_format "${DUMP_ARGS}")"
 
-  if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-    require_encryption_key
-    set -o pipefail
-    pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
-      | encrypt_stream > "${dump_file}"
-    set +o pipefail
-  else
-    pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" > "${dump_file}"
-  fi
-
-  db_log "Backup successful for ${DB}"
+  db_log "Starting  backup of database ${DB} using format ${FORMAT}"
 
   ##########################################
-  # S3 post-processing
+  # Perform dump
   ##########################################
-  if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
-    gzip -c -f "${dump_file}" > "${gz_file}"
+  if [[ "${FORMAT}" == "directory" ]]; then
+    local dump_dir="${BASE_FILENAME}.dir"
+    local tar_file="${BASE_FILENAME}.dir.tar.gz"
+
+    rm -rf "${dump_dir}"
+    mkdir -p "${dump_dir}"
+
+    if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      db_log "ERROR: Encryption not supported with directory format"
+      return 1
+    fi
+
+    if [[ -d "${dump_dir}" ]];then
+
+      pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" -f "${dump_dir}"
+
+      db_log "Tarring directory dump with max compression"
+      tar -C "$(dirname "${dump_dir}")" \
+          -I 'gzip -9' \
+          -cf "${tar_file}" "$(basename "${dump_dir}")"
+
+      rm -rf "${dump_dir}"
+    else
+      db_log "Missing dump directory "${dump_dir}""
+      return 1
+    fi
 
     if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-      generate_gz_checksum "${gz_file}"
+      generate_gz_checksum "${tar_file}"
     fi
 
-    s3_upload "${gz_file}"
-
-    cleanup_file "${dump_file}"
-    cleanup_file "${gz_file}.sha256"
-
-    if [[ -n "${post_hook}" ]]; then
-      "${post_hook}" "${gz_file}"
+    if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
+      s3_upload "${tar_file}"
+      cleanup_file "${tar_file}.sha256"
     fi
+
+    [[ -n "${post_hook}" ]] && "${post_hook}" "${tar_file}"
+
   else
-    # FILE backend: optional checksum on raw dump
-    if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-      sha256sum "${filename}" > "${filename}.sha256"
+    local dump_file="${BASE_FILENAME}.dmp"
+    local gz_file="${BASE_FILENAME}.dmp.gz"
+
+    if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      require_encryption_key
+      set -o pipefail
+      pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
+        | encrypt_stream > "${dump_file}"
+      set +o pipefail
+    else
+      pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" > "${dump_file}"
     fi
+
+
+
+    if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      generate_gz_checksum "${dump_file}"
+    fi
+
+    if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
+      gzip -9 -c "${dump_file}" > "${gz_file}"
+      cleanup_file "${dump_file}"
+
+      if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+        generate_gz_checksum "${gz_file}"
+      fi
+      s3_upload "${gz_file}"
+      cleanup_file "${gz_file}.sha256"
+    fi
+
+    [[ -n "${post_hook}" ]] && "${post_hook}" "${gz_file}"
   fi
+
+  db_log "Backup completed for ${DB}"
 }
 ############################################
 # Table-level dumps
@@ -200,20 +260,27 @@ restore_dump() {
   local db="$2"
 
   export PGPASSWORD="${POSTGRES_PASS}"
-
-  if [[ "${DB_DUMP_ENCRYPTION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-    db_log "Restoring encrypted dump into ${db}"
-    openssl enc -d -aes-256-cbc \
-      -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" \
-      -pbkdf2 -iter 10000 -md sha256 \
-      -in "${archive}" \
-      -out /tmp/decrypted.dump
-
-    pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump -d "${db}" ${RESTORE_ARGS}
-    rm -f /tmp/decrypted.dump
-  else
-    db_log "Restoring dump into ${db}"
+  FORMAT="$(get_dump_format "${DUMP_ARGS}")"
+  if [[ "${FORMAT}" == "directory" ]]; then
+    db_log "Restoring directory dump into ${db}"
     pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
+
+  else
+
+    if [[ "${DB_DUMP_ENCRYPTION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      db_log "Restoring encrypted dump into ${db}"
+      openssl enc -d -aes-256-cbc \
+        -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" \
+        -pbkdf2 -iter 10000 -md sha256 \
+        -in "${archive}" \
+        -out /tmp/decrypted.dump
+
+      pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump -d "${db}" ${RESTORE_ARGS}
+      rm -f /tmp/decrypted.dump
+    else
+      db_log "Restoring dump into ${db}"
+      pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
+    fi
   fi
 }
 

@@ -140,3 +140,20 @@ retry() {
     ((n++))
   done
 }
+
+
+get_dump_format() {
+  local DUMP_ARGS="$1"
+  local FORMAT
+
+  if [[ "${DUMP_ARGS}" =~ (^|[[:space:]])-Fd($|[[:space:]]) ]]; then
+    FORMAT="directory"
+  elif [[ "${DUMP_ARGS}" =~ (^|[[:space:]])-Fc($|[[:space:]]) ]]; then
+    FORMAT="custom"
+  else
+    FORMAT="other"
+  fi
+
+
+   echo "${FORMAT}"
+}
