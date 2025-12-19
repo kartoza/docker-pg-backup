@@ -12,62 +12,36 @@ if [[ $(dpkg -l | grep "docker-compose") > /dev/null ]];then
     VERSION='docker compose'
 fi
 
+run_tests() {
+  local docker_cmd="$1"
+  local compose_file="$2"
 
-############################################
-# Run tests using docker-compose.yml
-############################################
-${VERSION} up -d
+  local compose_args=()
 
+  # Only add -f if NOT default compose file
+  if [[ "${compose_file}" != "docker-compose.yml" ]]; then
+    compose_args=(-f "${compose_file}")
+  fi
 
-# Backup DB
-${VERSION} exec pg_restore  /backup-scripts/backups.sh
+  echo "Starting services using ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" up -d
 
-# Restore DB backup
-${VERSION} exec pg_restore  /backup-scripts/restore.sh
+  echo "Running backup for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /backup-scripts/backups.sh
 
-# Execute tests
-${VERSION} exec pg_restore /bin/bash /tests/test_restore.sh
+  echo "Running restore for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /backup-scripts/restore.sh
 
+  echo "Running unit tests for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /bin/bash /tests/test_restore.sh
 
-${VERSION} down -v
+  echo "Bringing down services for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" down -v
+}
 
-###############################################
-# Run tests using docker-compose-encryption.yml
-###############################################
-
-
-${VERSION} -f docker-compose-encryption.yml up -d
-
-
-# Backup DB
-${VERSION} -f docker-compose-encryption.yml exec pg_restore  /backup-scripts/backups.sh
-
-# Restore DB backup
-${VERSION} -f docker-compose-encryption.yml exec pg_restore  /backup-scripts/restore.sh
-
-# Execute tests
-${VERSION} -f docker-compose-encryption.yml exec pg_restore /bin/bash /tests/test_restore.sh
-
-
-${VERSION} -f docker-compose-encryption.yml down -v
-
-###############################################
-# Run tests using docker-compose-directory.yml
-# Test directory output and restore
-###############################################
-
-
-${VERSION} -f docker-compose-directory.yml up -d
-
-# Backup DB
-${VERSION} -f docker-compose-directory.yml exec pg_restore  /backup-scripts/backups.sh
-
-# Restore DB backup
-${VERSION} -f docker-compose-directory.yml exec pg_restore  /backup-scripts/restore.sh
-
-# Execute tests
-${VERSION} -f docker-compose-directory.yml exec pg_restore /bin/bash /tests/test_restore.sh
-
-
-${VERSION} -f docker-compose-directory.yml down -v
-
+compose_names=("docker-compose.yml" "docker-compose-encryption.yml" "docker-compose-directory.yml")
+for os in "${compose_names[@]}"; do
+  echo "Run tests using: $os"
+  echo "Run tests using: ${VERSION}"
+  run_tests "${VERSION}" "${os}"
+done
