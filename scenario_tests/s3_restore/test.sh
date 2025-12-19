@@ -40,8 +40,6 @@ run_tests() {
 }
 
 compose_names=("docker-compose.yml" "docker-compose-encryption.yml" "docker-compose-directory.yml")
-for os in "${compose_names[@]}"; do
-  echo "Run tests using: $os"
-  echo "Run tests using: ${VERSION}"
-  run_tests "${VERSION}" "${os}"
+for compose_file in "${compose_names[@]}"; do
+  run_tests "${VERSION}" "${compose_file}"
 done

@@ -5,66 +5,45 @@ set -e
 
 source ../test-env.sh
 
-# Run service
+# Determine docker compose version to use
 if [[ $(dpkg -l | grep "docker-compose") > /dev/null ]];then
     VERSION='docker-compose'
   else
     VERSION='docker compose'
 fi
 
+run_tests() {
+  local docker_cmd="$1"
+  local compose_file="$2"
 
-########################################################
-# Run tests using TARGET_ARCHIVE=/backups/latest.gis.dmp
-########################################################
+  local compose_args=()
 
-${VERSION} up -d
+  # Only add -f if NOT default compose file
+  if [[ "${compose_file}" != "docker-compose.yml" ]]; then
+    compose_args=(-f "${compose_file}")
+  fi
 
-${VERSION} exec pg_restore  /backup-scripts/backups.sh
+  echo "Starting services using ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" up -d
 
-${VERSION} exec pg_restore  /backup-scripts/restore.sh
+  echo "Running backup for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /backup-scripts/backups.sh
 
-# Execute tests
-${VERSION} exec pg_restore /bin/bash /tests/test_restore.sh
+  echo "Running restore for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /backup-scripts/restore.sh
 
+  echo "Running unit tests for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /bin/bash /tests/test_restore.sh
 
-${VERSION} down -v
+  echo "Bringing down services for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" down -v
+}
 
-########################################################
-# Run tests using TARGET_ARCHIVE=/backups/latest.gis.dmp
-# Run with encryption
-########################################################
+compose_names=("docker-compose.yml" "docker-compose-encryption.yml" "docker-compose-directory.yml")
+for compose_file in "${compose_names[@]}"; do
 
-
-${VERSION} -f docker-compose-encryption.yml up -d
-
-# Backup DB
-${VERSION} -f docker-compose-encryption.yml exec pg_restore  /backup-scripts/backups.sh
-
-# Restore DB backup
-${VERSION} -f docker-compose-encryption.yml exec pg_restore  /backup-scripts/restore.sh
-
-# Execute tests
-${VERSION} -f docker-compose-encryption.yml exec pg_restore /bin/bash /tests/test_restore.sh
-
-
-${VERSION} -f docker-compose-encryption.yml down -v
+  run_tests "${VERSION}" "${compose_file}"
+done
 
 
-##############################################################
-# Run tests using TARGET_ARCHIVE=/backups/latest.gis.dir.tar.gz
-# Run with directory backup
-###############################################################
 
-${VERSION} -f docker-compose-directory.yml up -d
-
-# Backup DB
-${VERSION} -f docker-compose-directory.yml exec pg_restore  /backup-scripts/backups.sh
-
-# Restore DB backup
-${VERSION} -f docker-compose-directory.yml exec pg_restore  /backup-scripts/restore.sh
-
-# Execute tests
-${VERSION} -f docker-compose-directory.yml exec pg_restore /bin/bash /tests/test_restore.sh
-
-
-${VERSION} -f docker-compose-directory.yml down -v

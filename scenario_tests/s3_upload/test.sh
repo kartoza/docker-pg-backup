@@ -12,54 +12,34 @@ if [[ $(dpkg -l | grep "docker-compose") > /dev/null ]];then
     VERSION='docker compose'
 fi
 
-################################################
-# Perform DB backup to s3 endpoint using
-# directory structure i.e 2025/June/PG_gis.dmp.gz
-#################################################
-${VERSION} up -d
+run_tests() {
+  local docker_cmd="$1"
+  local compose_file="$2"
 
-sleep 30
+  local compose_args=()
 
-${VERSION} exec pg_restore  /backup-scripts/backups.sh
+  # Only add -f if NOT default compose file
+  if [[ "${compose_file}" != "docker-compose.yml" ]]; then
+    compose_args=(-f "${compose_file}")
+  fi
 
-# Execute tests
-${VERSION} exec pg_restore /bin/bash /tests/test_upload.sh
+  echo "Starting services using ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" up -d
 
+  echo "Running backup for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /backup-scripts/backups.sh
 
-${VERSION} down -v
+  echo "Running unit tests for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /bin/bash /tests/test_upload.sh
 
-################################################
-# Perform DB backup to s3 endpoint using
-# ARCHIVE_FILENAME=latest
-#################################################
-${VERSION} -f docker-compose-latest.yml up -d
+  echo "Bringing down services for compose: ${compose_file}"
+  ${docker_cmd}  "${compose_args[@]}" down -v
+}
 
-sleep 30
-
-${VERSION} -f docker-compose-latest.yml exec pg_restore  /backup-scripts/backups.sh
-
-# Execute tests
-${VERSION} -f docker-compose-latest.yml exec pg_restore /bin/bash /tests/test_upload.sh
-
-
-${VERSION} -f docker-compose-latest.yml down -v
-################################################
-# Perform DB backup to s3 endpoint using
-# directory structure i.e 2025/June/PG_gis.dmp.gz
-# Also check if checksum is uploaded correctly
-#################################################
-
-sed -i 's/CHECKSUM_VALIDATION=False/CHECKSUM_VALIDATION=True/' docker-compose.yml
-
-${VERSION} up -d
-
-sleep 30
-# Perform DB backup to s3 endpoint this time with checksum
-${VERSION} exec pg_restore  /backup-scripts/backups.sh
-
-# Execute tests
-${VERSION} exec pg_restore /bin/bash /tests/test_upload.sh
+compose_names=("docker-compose.yml" "docker-compose-latest.yml" "docker-compose-checksum.yml")
+for compose_file in "${compose_names[@]}"; do
+  run_tests "${VERSION}" "${compose_file}"
+done
 
 
-${VERSION} down -v
-sed -i 's/CHECKSUM_VALIDATION=True/CHECKSUM_VALIDATION=False/' docker-compose.yml
+
