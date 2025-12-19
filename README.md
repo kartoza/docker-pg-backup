@@ -28,10 +28,7 @@
 
 There are various ways to get the image onto your system:
 
-
-The preferred way (but using most bandwidth for the initial image) is to
-get our docker trusted build like this:
-
+### Pulling from Hub(Docker Hub)
 
 ```
 docker pull kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
@@ -48,16 +45,16 @@ We highly suggest that you use a tagged image that match the PostgreSQL image yo
 (kartoza/pg-backup:18-3.6 for backing up kartoza/postgis:18-3.6 DB). The
 latest tag  may change and may not successfully back up your database. 
 
+### Building the image locally
 
-To build the image yourself do:
 
 ```
 git clone https://github.com/kartoza/docker-pg-backup.git
 cd docker-pg-backup
-./build.sh # It will build the latest version corresponding the latest PostgreSQL version
+./build.sh 
 ```
 
-## Running the image
+## Running Services using the Image
 
 
 To create a running container do:
@@ -80,41 +77,8 @@ To create a running container do:
 
 ## Specifying environment variables
 
-
-Below is a list of environment variables that can be used with the image.
-
-* `POSTGRES_USER` defaults to : docker
-* `POSTGRES_PASS` defaults to : docker
-* `POSTGRES_PORT` defaults to : 5432
-* `POSTGRES_HOST` defaults to : db
-* `ARCHIVE_FILENAME` you can use your specified filename format here, default to empty, which 
-means it will use default filename format.
-* `DBLIST` a space-separated list of databases for backup, e.g. `gis data`. Default is all 
-databases.
-* `REMOVE_BEFORE` remove all old backups older than specified amount of days, e.g. `30` would 
-only keep backup files younger than 30 days. Default: no files are ever removed.
-* `MIN_SAVED_FILE` if set, it ensures that we keep at least this amount of files. For instance, if we 
-choose `20`, we will at least keep 20 backups even if they are older than `REMOVE_BEFORE`. Default: set to 0.
-* `CONSOLIDATE_AFTER` after the specified number of days, consolidate sub-daily backups (e.g., hourly, every 30 minutes) 
-to one backup per day. For example, `7` would keep all sub-daily backups for 7 days, then consolidate older ones to daily backups. 
-Default: `0` (no consolidation, all sub-daily backups are kept).
-* `DUMP_ARGS` The default dump arguments based on official 
-  [PostgreSQL Dump options](https://www.postgresql.org/docs/18/app-pgdump.html).
-* `RESTORE_ARGS` Additional restore commands based on official [PostgreSQL restore](https://www.postgresql.org/docs/18/app-pgrestore.html) 
-* `STORAGE_BACKEND` The default backend is to store the backup files. It can either
-  be `FILE` or `S3`(Example minio or amazon bucket) backends. 
-* `DB_TABLES` A boolean variable to specify if the user wants to dump the DB as individual tables. 
-  Defaults to `No`
-* `CRON_SCHEDULE` specifies the cron schedule when the backup needs to run. Defaults to 
-midnight daily.
-* `DB_DUMP_ENCRYPTION` boolean value specifying if you need the backups to be encrypted.
-* `RUN_ONCE` useful to run the container as a once off job and exit. Useful in Kubernetes context
-
-**Note** To avoid interpolation issues with the env variable `${CRON_SCHEDULE}` you will
-need to provide the variable as a quoted string i.e ${CRON_SCHEDULE}='*/1 * * * *' 
-or ${CRON_SCHEDULE}="*/1 * * * *" 
-
-Here is a more typical example using [docker-composer](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose.yml):
+For a full description of the environment variables available with
+this image look into [docker-env.md](https://github.com/kartoza/docker-pg-backup/blame/master/docker-env.md)
 
 
 ### Filename format
@@ -146,22 +110,18 @@ The backup archive would be something like
 /backups/latest.gis.dmp
 ```
 
+#### Backup Format
+
+1) The database defaults to back up using the custom format `-Fc`.
+2) A secondary option is specified using `-Fd`, this will backup
+the database into a directory format. This is further compressed
+for easy storage and uploading to S3 backends
+
+   
 ## Backing up to S3 bucket
 The script uses [s3cmd](https://s3tools.org/s3cmd) for backing up files to S3 bucket.
 
-You need to specify the following environment variables backup to S3
-
-* `ACCESS_KEY_ID` Access key for the bucket
-* `SECRET_ACCESS_KEY` Secret Access key for the bucket
-* `DEFAULT_REGION` Defaults to 'us-west-2'  
-* `HOST_BASE`
-* `HOST_BUCKET` 
-* `SSL_SECURE` The determines if the S3 bucket is 
-* `BUCKET` Indicates the bucket name that will be created.
-
-You can read more about configuration options for [s3cmd](https://s3tools.org/s3cmd-howto)
-
-For a typical usage of this look at the [docker-compose-s3.yml](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose-s3.yml)
+For a minimal example use [docker-compose-s3.yml](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose-s3.yml) for a quick start.
 
 ## Mounting Configs
 
@@ -173,8 +133,7 @@ i.e Add webhook/callback support for backup completion notifications
 
 An environment variable `${EXTRA_CONFIG_DIR}` controls the location of the folder.
 
-If you need to mount [s3cfg](https://gist.github.com/greyhoundforty/a4a9d80a942d22a8a7bf838f7abbcab2) file. You can
-run the following:
+If you need to mount [s3cfg](https://gist.github.com/greyhoundforty/a4a9d80a942d22a8a7bf838f7abbcab2) file. You can run the following:
 
 ```
 -e ${EXTRA_CONFIG_DIR}=/settings
@@ -188,18 +147,7 @@ If you need to run i.e webhook you can implement your own custom hook logic
 -v /data:/settings
 ```
 
-Where `backup_monitoring.sh` is located in `/data` or in
-kubernetes you can mount this file as a config.
-
-or you can just run the env variable
-```bash
-MONITORING_ENDPOINT_COMMAND="""curl -D - -X POST -G 'https://appsignal-endpoint.net/check_ins/heartbeats' -d 'api_key=YOUR-APP-LEVEL-API-KEY' -d 'identifier=YOUR-CHECK-IN-IDENTIFIER'"""
-```
-to monitor success or failure of the backup.
-
 ## Restoring
-
-The image provides a restore script. 
 
 There are two ways to restore files based on the location of the backup files.
 
@@ -214,18 +162,14 @@ Set the following environment variables:
  * `WITH_POSTGIS` Kartoza specific, to generate POSTGIS extension along with the restore process
  * `TARGET_ARCHIVE` The full path of the archive to restore
 
-**Note:** The restore script will try to delete the `TARGET_DB` if it matches an existing database, 
-so make sure you know what you are doing. 
-Then it will create a new one and restore the content from `TARGET_ARCHIVE`
+**Note:** The restore script will exit if you try to restore into an existing 
+`TARGET_DB`. 
 
 It is generally a good practice to restore into an empty new database and then manually
 drop and rename the databases. 
 
-i.e. if your original database is named `gis`, you can restore it into a new database called
-`gis_restore`
-
- If you specify these environment variables using docker-compose.yml file,
- then you can execute a restore process like this:
+After setting up the environment variables in the docker-compose.yml
+and running it, you can execute the restore by running:
 
  ```
  docker-compose exec dbbackups /backup-scripts/restore.sh
@@ -240,15 +184,14 @@ To restore from S3 bucket, first you have to exec into your running container. Y
   - Date and time: `"2023-03-24-14-30"` - will restore the backup from 14:30 on that day
 - the second parameter is for the database name you want your backup to be restored: ex `"vaultdb"`
 
-You can read more about configuration options for [s3cmd](https://s3tools.org/s3cmd-howto)
 
-For a typical usage of this look at the [docker-compose-s3.yml](https://github.com/kartoza/docker-pg-backup/blob/master/docker-compose-s3.yml)
-
+For more docker-compose examples of these implementations look into the 
+scenario_tests folder.
 
 ## Credits
 
 Tim Sutton (tim@kartoza.com)
 
-Admire Nyakudya (admire@kartoza.com)
+Admire Nyakudya (addloe@gmail.com)
 
-Rizky Maulana (rizky@kartoza.com)
+Rizky Maulana 
