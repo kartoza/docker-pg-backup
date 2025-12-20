@@ -243,9 +243,9 @@ function non_root_permission() {
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
 mkdir -p "${MYBACKUPDIR}"
 mkdir -p "${MYBASEDIR}"
+
+
 # Copy settings for cron file
-
-
 cron_config
 
 function configure_env_variables() {
@@ -296,17 +296,7 @@ set | grep PG
 }
 configure_env_variables
 
-if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/proc/1/fd/1 2>\&1#g' /backup-scripts/backups.sh
-else
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/var/log/cron.out 2>\&1#g' /backup-scripts/backups.sh
-fi
 
-# Fix variables not interpolated
-sed -i "s/'//g" /backup-scripts/backups-cron
-sed -i 's/\"//g' /backup-scripts/backups-cron
-
-# Setup cron job
 
 # Gosu preparations
 if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then

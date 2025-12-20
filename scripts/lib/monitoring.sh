@@ -18,6 +18,5 @@ notify_monitoring() {
   fi
 
   # Safe fallback
-  echo "[MONITORING] No monitoring configured (status=${status})" \
-    >> "${LOG_TARGET:-/proc/1/fd/1}"
+  return 0
 }

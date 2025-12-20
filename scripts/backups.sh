@@ -58,7 +58,7 @@ case "${STORAGE_BACKEND}" in
     ;;
   *)
     log "ERROR: Unknown STORAGE_BACKEND=${STORAGE_BACKEND}"
-    notify_monitoring "failure"
+
     exit 1
     ;;
 esac
@@ -73,5 +73,5 @@ run_retention
 # Finish
 ############################################
 log "Backup job completed successfully"
-notify_monitoring "success" || true
+
 exit 0

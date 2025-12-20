@@ -1,4 +1,0 @@
-# Run the backups at 11pm each night
-${CRON_SCHEDULE} /backup-scripts/backups.sh > ${CONSOLE_LOGGING_OUTPUT}
-
-# We need a blank line here for it to be a valid cron file
