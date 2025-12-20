@@ -290,8 +290,7 @@ export CONSOLIDATE_AFTER_MINUTES="${CONSOLIDATE_AFTER_MINUTES}"
 export CHECKSUM_VALIDATION=\"${CHECKSUM_VALIDATION}\"
  " > /backup-scripts/pgenv.sh
 
-echo "Start script running with these environment options"
-set | grep PG
+
 
 }
 configure_env_variables
@@ -340,8 +339,12 @@ run_backup() {
   non_root_permission "${user}" "${group}"
 
   if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
+    echo -e "\e[32m ------------------------------------------------- \033[0m"
+    echo -e "\e[32m [Entrypoint] Run backup script as a once off job. \033[0m"
     /backup-scripts/backups.sh
   else
+    echo -e "\e[32m ----------------------------------------------------------- \033[0m"
+    echo -e "\e[32m [Entrypoint] Run backup script as a cron job in foreground. \033[0m"
     chmod gu+rw /var/run
     chmod gu+s /usr/sbin/cron
     eval "${cron_tab_command}"
