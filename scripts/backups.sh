@@ -11,14 +11,32 @@ LIB_DIR="${SCRIPT_DIR}/lib"
 ############################################
 # Load libraries
 ############################################
-source "/backup-scripts/pgenv.sh"
-source "${LIB_DIR}/logging.sh"
-source "${LIB_DIR}/monitoring.sh"
-source "${LIB_DIR}/db.sh"
-source "${LIB_DIR}/encryption.sh"
-source "${LIB_DIR}/s3.sh"
-source "${LIB_DIR}/retention.sh"
-source "${LIB_DIR}/utils.sh"
+
+configure_sources() {
+  # Always source the environment file first
+  [[ -f /backup-scripts/pgenv.sh ]] && source /backup-scripts/pgenv.sh
+
+  # List of library modules to source
+  local libs=(
+    logging
+    monitoring
+    db
+    encryption
+    s3
+    retention
+    utils
+  )
+
+  for lib in "${libs[@]}"; do
+    local file="${LIB_DIR}/${lib}.sh"
+    if [[ -f "$file" ]]; then
+      source "$file"
+    else
+      echo "Warning: missing library $file" >&2
+    fi
+  done
+}
+configure_sources
 
 ############################################
 # Traps
@@ -73,5 +91,3 @@ run_retention
 # Finish
 ############################################
 log "Backup job completed successfully"
-
-exit 0

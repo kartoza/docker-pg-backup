@@ -248,55 +248,35 @@ mkdir -p "${MYBASEDIR}"
 # Copy settings for cron file
 cron_config
 
-function configure_env_variables() {
-echo "
-export PATH=\"${PATH}\"
-export EXTRA_CONF_DIR=\"${EXTRA_CONF_DIR}\"
-export STORAGE_BACKEND=\"${STORAGE_BACKEND}\"
-export ACCESS_KEY_ID=\"${ACCESS_KEY_ID}\"
-export SECRET_ACCESS_KEY=\"${SECRET_ACCESS_KEY}\"
-export DEFAULT_REGION=\"${DEFAULT_REGION}\"
-export BUCKET=\"${BUCKET}\"
-export HOST_BASE=\"${HOST_BASE}\"
-export HOST_BUCKET=\"${HOST_BUCKET}\"
-export SSL_SECURE=\"${SSL_SECURE}\"
-export DUMP_ARGS=\"${DUMP_ARGS}\"
-export RESTORE_ARGS=\"${RESTORE_ARGS}\"
-export POSTGRES_USER=\"${POSTGRES_USER}\"
-export POSTGRES_PASS=\"$POSTGRES_PASS\"
-export POSTGRES_PORT="${POSTGRES_PORT}"
-export POSTGRES_HOST=\"${POSTGRES_HOST}\"
-export DUMPPREFIX=\"${DUMPPREFIX}\"
-export ARCHIVE_FILENAME=\"${ARCHIVE_FILENAME}\"
-export REMOVE_BEFORE="${REMOVE_BEFORE}"
-export CONSOLIDATE_AFTER="${CONSOLIDATE_AFTER}"
-export MIN_SAVED_FILE="${MIN_SAVED_FILE}"
-export RUN_ONCE="${RUN_ONCE}"
-export DB_DUMP_ENCRYPTION_PASS_PHRASE=\"${DB_DUMP_ENCRYPTION_PASS_PHRASE}\"
-export DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
-export PG_CONN_PARAMETERS=\"${PG_CONN_PARAMETERS}\"
-export DBLIST=\"${DBLIST}\"
-export DB_TABLES=\"${DB_TABLES}\"
-export ENABLE_S3_BACKUP=\"${ENABLE_S3_BACKUP}\"
-export CLEANUP_DRY_RUN=\"${CLEANUP_DRY_RUN}\"
-export MYBASEDIR=\"${MYBASEDIR}\"
-export MYBACKUPDIR=\"${MYBACKUPDIR}\"
-export MYDATE=\"${MYDATE}\"
-export MONTH=\"${MONTH}\"
-export YEAR="${YEAR}"
-export TIME_MINUTES="${TIME_MINUTES}"
-export CONSOLIDATE_AFTER="${CONSOLIDATE_AFTER}"
-export CONSOLIDATE_AFTER_MINUTES="${CONSOLIDATE_AFTER_MINUTES}"
-export CHECKSUM_VALIDATION=\"${CHECKSUM_VALIDATION}\"
- " > /backup-scripts/pgenv.sh
+configure_env_variables() {
+  # Vars that should be quoted (strings, secrets, paths)
+  local quoted_vars=(
+    PATH EXTRA_CONF_DIR STORAGE_BACKEND ACCESS_KEY_ID SECRET_ACCESS_KEY
+    DEFAULT_REGION BUCKET HOST_BASE HOST_BUCKET SSL_SECURE
+    DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_PASS POSTGRES_HOST
+    DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION_PASS_PHRASE DB_DUMP_ENCRYPTION
+    PG_CONN_PARAMETERS DBLIST DB_TABLES ENABLE_S3_BACKUP CLEANUP_DRY_RUN
+    MYBASEDIR MYBACKUPDIR MYDATE CHECKSUM_VALIDATION
+  )
 
+  # Vars that should be unquoted (numeric values)
+  local unquoted_vars=(
+    POSTGRES_PORT REMOVE_BEFORE CONSOLIDATE_AFTER MIN_SAVED_FILE RUN_ONCE
+    MONTH YEAR TIME_MINUTES CONSOLIDATE_AFTER_MINUTES
+  )
 
+  {
+    for var in "${quoted_vars[@]}"; do
+      printf 'export %s="%s"\n' "$var" "${!var}"
+    done
 
+    for var in "${unquoted_vars[@]}"; do
+      printf 'export %s=%s\n' "$var" "${!var}"
+    done
+  } > /backup-scripts/pgenv.sh
 }
+
 configure_env_variables
-
-
-
 # Gosu preparations
 if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
   USER_ID=${POSTGRES_UID:-1000}
