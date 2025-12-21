@@ -54,7 +54,7 @@ s3_restore() {
       backup_key="${filename}"
     fi
 
-    restore_s3log "Using ARCHIVE_FILENAME override: ${backup_key}"
+    restore_s3log "Using ${TARGET_ARCHIVE} override: ${backup_key}"
 
   ############################################
   # 2. Date-based resolution

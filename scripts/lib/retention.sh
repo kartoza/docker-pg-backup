@@ -10,25 +10,29 @@ retention_log() {
 # Entry point
 ############################################
 run_retention() {
-  [[ "${REMOVE_BEFORE}" -le 0 ]] && return 0
+  if [[ "${REMOVE_BEFORE}" -le 0 || -n "${TARGET_ARCHIVE}" ]]; then
+    retention_log "Either REMOVE_BEFORE=${REMOVE_BEFORE} is set to 0 or TARGET_ARCHIVE=${TARGET_ARCHIVE} is set, so no retention will run"
+    return 0
+  fi
 
   retention_log "Starting retention"
   retention_log "REMOVE_BEFORE=${REMOVE_BEFORE}d MIN_SAVED_FILE=${MIN_SAVED_FILE} CONSOLIDATE_AFTER=${CONSOLIDATE_AFTER}d"
+
   run_local_retention
 
-  if [[ "${ENABLE_S3_BACKUP}" =~ [Tt][Rr][Uu][Ee] ]];then
+  if [[ "${ENABLE_S3_BACKUP}" =~ [Tt][Rr][Uu][Ee] ]]; then
+    retention_log "Running S3 retention"
     run_s3_retention
   fi
 
   retention_log "Retention finished"
 }
 
+
 ############################################
 # Local retention
 ############################################
 run_local_retention() {
-  [[ ! -d "${MYBASEDIR}" ]] && return 0
-
   if (( CONSOLIDATE_AFTER > 0 )); then
     consolidate_backups
   fi
@@ -124,7 +128,6 @@ delete_file() {
 # S3 retention
 ############################################
 run_s3_retention() {
-  [[ -z "${S3_BUCKET:-}" ]] && return 0
 
   retention_log "Running S3 retention on ${S3_BUCKET}"
 
