@@ -33,6 +33,9 @@ run_tests() {
     echo "Generating Mock backups data for compose: ${compose_file}"
     ${docker_cmd}  "${compose_args[@]}" exec pg_restore /tests/old_backups.sh
 
+    echo "Running backup again for retention run for compose: ${compose_file}"
+    ${docker_cmd}  "${compose_args[@]}" exec pg_restore /backup-scripts/backups.sh
+
     echo "Running unit tests for compose: ${compose_file}"
     ${docker_cmd}  "${compose_args[@]}" exec pg_restore /bin/bash /tests/test_retension_file.sh
   else
