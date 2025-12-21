@@ -3,28 +3,13 @@ import subprocess
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from base_retention_test import BaseRetentionTest
 
 
-class TestRetention(unittest.TestCase):
+class TestRetention(BaseRetentionTest):
     """
     Retention scripts are assumed to have already run.
     """
-
-    def setUp(self):
-
-        self.base_dir = Path(os.environ.get("MYBASEDIR", "/backups"))
-        self.remove_before = int(os.environ.get("REMOVE_BEFORE", "7"))
-        self.min_saved = int(os.environ.get("MIN_SAVED_FILE", "2"))
-        self.consolidate_after = int(os.environ.get("CONSOLIDATE_AFTER", "1"))
-
-        self.enable_s3 = str(os.environ.get("ENABLE_S3_BACKUP", "false")).lower() == "true"
-        self.bucket = os.environ.get("S3_BUCKET")
-        self.dump_prefix = os.environ.get("DUMPPREFIX", "")
-        self.checksum_validation = str(
-            os.environ.get("CHECKSUM_VALIDATION", "false")
-        ).lower() == "true"
-
-        self.now = datetime.now()
 
     # ------------------------------------------------------------------
     # S3 retention

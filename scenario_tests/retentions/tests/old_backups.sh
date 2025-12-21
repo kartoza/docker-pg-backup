@@ -12,7 +12,7 @@ for i in {0..7}; do
 
   cp "$BASE_FILENAME" "$OLD_BASE_FILENAME"
 
-  # 🔑 THIS is what makes retention work
+  # makes retention work using mtime
   touch -d "$i days ago" "$OLD_BASE_FILENAME"
 
   echo "Created mock backup ($i days old): $OLD_BASE_FILENAME"
