@@ -131,7 +131,7 @@ if [ -z "${DB_DUMP_ENCRYPTION}" ]; then
 fi
 
 if [ -z "${CONSOLE_LOGGING}" ]; then
-  CONSOLE_LOGGING=FALSE
+  CONSOLE_LOGGING=True
 fi
 
 if [ -z "${DB_TABLES}" ]; then

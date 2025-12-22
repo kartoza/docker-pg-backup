@@ -8,8 +8,8 @@ pushd /tests
 PGHOST=localhost \
 PGDATABASE=gis \
 PYTHONPATH=/lib \
-  python3 -m unittest -v test_upload.TestUpload
+  python3 -m unittest -v test_s3_retentions.TestRetentionS3
 
 
 # Clean up artifact
-s3cmd rm --force --recursive s3://${BUCKET}
+#s3cmd rm --force --recursive s3://${BUCKET}

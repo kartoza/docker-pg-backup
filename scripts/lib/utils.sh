@@ -157,3 +157,18 @@ get_dump_format() {
 
    echo "${FORMAT}"
 }
+
+extract_ts_from_filename() {
+  local fname="$1"
+  local raw datestr ts
+
+  raw=$(sed -n 's/.*\.\([0-9]\{2\}-[A-Za-z]\+-[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)\..*/\1/p' <<< "$fname")
+
+  [[ -z "$raw" ]] && { echo 0; return; }
+
+  # Convert: DD-Month-YYYY-HH-MM → "DD Month YYYY HH:MM"
+  datestr="$(sed 's/-/ /1; s/-/ /1; s/-/ /1; s/-/:/' <<< "$raw")"
+
+  ts=$(date -d "$datestr" +%s 2>/dev/null || echo 0)
+  echo "$ts"
+}

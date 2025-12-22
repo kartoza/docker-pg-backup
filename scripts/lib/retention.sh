@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+############################################
+# Logging
+############################################
+
 retention_log() {
   log "[RETENTION] $*"
 }
@@ -9,19 +13,25 @@ retention_log() {
 # Entry point
 ############################################
 run_retention() {
-  if [[ "${REMOVE_BEFORE}" -le 0 || -n "${TARGET_ARCHIVE:-}" ]]; then
-    retention_log "Either REMOVE_BEFORE=${REMOVE_BEFORE} is set to 0 or TARGET_ARCHIVE=${TARGET_ARCHIVE:-} is set, so no retention will run"
+  : "${TARGET_ARCHIVE:=}"
+
+  if [[ "${REMOVE_BEFORE}" -le 0 || -n "${TARGET_ARCHIVE}" ]]; then
+    retention_log \
+      "Either REMOVE_BEFORE=${REMOVE_BEFORE} is set to 0 or TARGET_ARCHIVE=${TARGET_ARCHIVE} is set, so no retention will run"
     return 0
   fi
 
   retention_log "Starting retention"
-  retention_log "REMOVE_BEFORE=${REMOVE_BEFORE}d MIN_SAVED_FILE=${MIN_SAVED_FILE} CONSOLIDATE_AFTER=${CONSOLIDATE_AFTER}d"
+  retention_log \
+    "REMOVE_BEFORE=${REMOVE_BEFORE}d MIN_SAVED_FILE=${MIN_SAVED_FILE} CONSOLIDATE_AFTER=${CONSOLIDATE_AFTER}d"
 
-  run_local_retention
 
-  if [[ "${ENABLE_S3_BACKUP}" =~ [Tt][Rr][Uu][Ee] ]]; then
-    retention_log "Running S3 retention"
+
+  if [[ "${STORAGE_BACKEND}" == 'S3' ]]; then
+
     run_s3_retention
+  else
+    run_local_retention
   fi
 
   retention_log "Retention finished"
@@ -31,20 +41,17 @@ run_retention() {
 # Local retention
 ############################################
 run_local_retention() {
-  if (( CONSOLIDATE_AFTER > 0 )); then
-    consolidate_backups
-  fi
-
+  (( CONSOLIDATE_AFTER > 0 )) && consolidate_backups
   expire_old_backups
 }
 
 ############################################
-# Sub-daily consolidation
+# Local consolidation
 ############################################
 consolidate_backups() {
   local consolidate_minutes=$(( CONSOLIDATE_AFTER * 24 * 60 ))
 
-  retention_log "Consolidating backups older than ${CONSOLIDATE_AFTER} days"
+  retention_log "Consolidating local backups older than ${CONSOLIDATE_AFTER} days"
 
   mapfile -t files_with_time < <(
     find "${MYBASEDIR}" -type f \
@@ -59,9 +66,8 @@ consolidate_backups() {
     file="${entry#* }"
     fname="$(basename "$file")"
 
-    key="$(sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\).*/\1/p' <<< "$fname")"
-    [[ -z "$key" ]] && continue
-    [[ -n "${keep_map[$key]:-}" ]] && continue
+    key="$(sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\|gz\).*/\1/p' <<< "$fname")"
+    [[ -z "$key" || -n "${keep_map[$key]:-}" ]] && continue
 
     keep_map["$key"]="$file"
   done
@@ -70,7 +76,7 @@ consolidate_backups() {
     file="${entry#* }"
     fname="$(basename "$file")"
 
-    key="$(sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\).*/\1/p' <<< "$fname")"
+    key="$(sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\|gz\).*/\1/p' <<< "$fname")"
     [[ -z "$key" ]] && continue
     [[ "${keep_map[$key]}" == "$file" ]] && continue
 
@@ -79,18 +85,16 @@ consolidate_backups() {
 }
 
 ############################################
-# Expiry retention (FIXED)
+# Local expiry (MIN_SAVED_FILE aware)
 ############################################
 expire_old_backups() {
   local minutes=$(( REMOVE_BEFORE * 24 * 60 ))
 
-  # Newest → oldest
   mapfile -t all_files < <(
     find "${MYBASEDIR}" -type f ! -name "globals.sql" \
       -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2-
   )
 
-  # Files older than REMOVE_BEFORE
   mapfile -t old_files < <(
     find "${MYBASEDIR}" -type f ! -name "globals.sql" \
       -mmin "+${minutes}" \
@@ -99,22 +103,17 @@ expire_old_backups() {
 
   retention_log "Found ${#old_files[@]} backups older than ${REMOVE_BEFORE} days"
 
-  # Protect newest MIN_SAVED_FILE backups
   declare -A protected
   for ((i=0; i<MIN_SAVED_FILE && i<${#all_files[@]}; i++)); do
     protected["${all_files[$i]}"]=1
   done
 
-  (( MIN_SAVED_FILE > 0 )) && \
+  (( MIN_SAVED_FILE > 0 )) &&
     retention_log "Protecting ${MIN_SAVED_FILE} newest backups"
 
-  # Delete old backups unless protected
   for file in "${old_files[@]}"; do
-    if [[ -n "${protected[$file]:-}" ]]; then
-      retention_log "Keeping ${file} (protected by MIN_SAVED_FILE)"
-      continue
-    fi
-    delete_file "${file}" "expiry"
+    [[ -n "${protected[$file]:-}" ]] && continue
+    delete_file "$file" "expiry"
   done
 }
 
@@ -125,7 +124,7 @@ delete_file() {
   local file="$1"
   local reason="$2"
 
-  if [[ "${CLEANUP_DRY_RUN}" == "true" ]]; then
+  if [[ "${CLEANUP_DRY_RUN:-false}" == "true" ]]; then
     retention_log "[DRY-RUN] Would delete ${file} (${reason})"
   else
     retention_log "Deleting ${file} (${reason})"
@@ -137,38 +136,95 @@ delete_file() {
 # S3 retention
 ############################################
 run_s3_retention() {
-  retention_log "Running S3 retention on ${S3_BUCKET}"
+  : "${BUCKET:?BUCKET must be set when STORAGE_BACKEND=S3}"
+  : "${REMOVE_BEFORE:=0}"
+  : "${CONSOLIDATE_AFTER:=0}"
 
-  if ! s3cmd ls "s3://${S3_BUCKET}" >/dev/null 2>&1; then
-    retention_log "Bucket ${S3_BUCKET} not accessible"
+  retention_log "Running S3 retention on ${BUCKET}"
+
+
+  if s3cmd ls "s3://${BUCKET}" >/dev/null 2>&1; then
+    :
+  else
+    retention_log "Bucket ${BUCKET} not accessible"
     return 0
   fi
 
-  clean_s3_bucket "${S3_BUCKET}" "${REMOVE_BEFORE}"
+  s3_expire_objects
+
+  if (( CONSOLIDATE_AFTER > 0 )); then
+    s3_consolidate_objects
+  fi
 }
 
-clean_s3_bucket() {
-  local bucket="$1"
-  local days="$2"
+############################################
+# S3 expiry
+############################################
+s3_expire_objects() {
   local cutoff
-  cutoff=$(date -d "${days} days ago" +%s)
+  cutoff=$(date -d "${REMOVE_BEFORE} days ago" +%s)
 
-  s3cmd ls "s3://${bucket}" --recursive | while read -r line; do
-    local date path ts
+  retention_log "Expiring S3 backups older than ${REMOVE_BEFORE} days"
 
-    date="$(awk '{print $1}' <<< "$line")"
-    path="$(awk '{print $4}' <<< "$line")"
-    [[ -z "$path" ]] && continue
+  while read -r _ _ _ path; do
+    [[ -z "${path:-}" || "$path" == *"globals.sql"* ]] && continue
 
-    ts=$(date -d "$date" +%s 2>/dev/null || echo 0)
+    fname="$(basename "$path")"
+    ts=$(extract_ts_from_filename "$fname")
 
-    if (( ts > 0 && ts < cutoff )); then
-      if [[ "${CLEANUP_DRY_RUN}" == "true" ]]; then
-        retention_log "[DRY-RUN] Would delete S3 object ${path}"
-      else
-        log "Deleting S3 object ${path}"
-        s3cmd del "${path}"
-      fi
+    (( ts == 0 || ts >= cutoff )) && continue
+
+    if [[ "${CLEANUP_DRY_RUN:-false}" == "true" ]]; then
+      retention_log "[DRY-RUN] Would delete S3 object ${path}"
+    else
+      retention_log "Deleting S3 object ${path} (expiry)"
+      s3cmd del "${path}"
     fi
-  done
+  done < <(s3cmd ls "s3://${BUCKET}" --recursive || true)
+}
+
+############################################
+# S3 consolidation
+############################################
+s3_consolidate_objects() {
+  local cutoff
+  cutoff=$(date -d "${CONSOLIDATE_AFTER} days ago" +%s)
+
+  retention_log "Consolidating S3 backups older than ${CONSOLIDATE_AFTER} days"
+
+  declare -A keep_map
+
+  # First pass: decide what to keep
+  while read -r _ date _ path; do
+    [[ -z "${path}" || "$path" == *"globals.sql"* ]] && continue
+
+    ts=$(date -d "${date}" +%s 2>/dev/null || echo 0)
+    (( ts == 0 || ts >= cutoff )) && continue
+
+    fname="$(basename "${path}")"
+    key="$(sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\|gz\).*/\1/p' <<< "${fname}")"
+    [[ -z "${key}" || -n "${keep_map[$key]:-}" ]] && continue
+
+    keep_map["$key"]="${path}"
+  done < <(s3cmd ls "s3://${BUCKET}" --recursive | sort || true)
+
+  # Second pass: delete everything else
+  while read -r _ date _ path; do
+    [[ -z "${path}" || "$path" == *"globals.sql"* ]] && continue
+
+    ts=$(date -d "${date}" +%s 2>/dev/null || echo 0)
+    (( ts == 0 || ts >= cutoff )) && continue
+
+    fname="$(basename "${path}")"
+    key="$(sed -n 's/\(.*\)-[0-9]\{2\}-[0-9]\{2\}\.\(dmp\|sql\|gz\).*/\1/p' <<< "${fname}")"
+
+    [[ -z "${key}" || "${keep_map[$key]:-}" == "${path}" ]] && continue
+
+    if [[ "${CLEANUP_DRY_RUN:-false}" == "true" ]]; then
+      retention_log "[DRY-RUN] Would delete S3 object ${path} (consolidation)"
+    else
+      retention_log "Deleting S3 object ${path} (consolidation)"
+      s3cmd del "${path}"
+    fi
+  done < <(s3cmd ls "s3://${BUCKET}" --recursive || true)
 }

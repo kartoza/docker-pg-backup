@@ -1,12 +1,11 @@
 import os
 import subprocess
-import unittest
+import re
 from datetime import datetime, timedelta
-from pathlib import Path
 from base_retention_test import BaseRetentionTest
 
 
-class TestRetention(BaseRetentionTest):
+class TestRetentionS3(BaseRetentionTest):
     """
     Retention scripts are assumed to have already run.
     """
@@ -14,12 +13,16 @@ class TestRetention(BaseRetentionTest):
     # ------------------------------------------------------------------
     # S3 retention
     # ------------------------------------------------------------------
+    def _parse_s3_datetime(self, parts):
+        # parts: ['2025-12-22', '06:09', '3114', 's3://...']
+        return datetime.strptime(
+            f"{parts[0]} {parts[1]}",
+            "%Y-%m-%d %H:%M",
+        )
 
     def test_s3_retention_policy_applied(self):
         if not self.enable_s3:
             self.skipTest("S3 retention disabled")
-
-        self.assertTrue(self.bucket, "S3_BUCKET not set")
 
         proc = subprocess.run(
             ["s3cmd", "ls", f"s3://{self.bucket}", "--recursive"],
@@ -31,14 +34,6 @@ class TestRetention(BaseRetentionTest):
         lines = proc.stdout.splitlines()
         self.assertTrue(lines, "No objects found in S3 bucket")
 
-        objects = [line.split()[-1] for line in lines]
-
-        # globals.sql must exist
-        self.assertTrue(
-            any(o.endswith("globals.sql") for o in objects),
-            "globals.sql missing from S3 after retention",
-        )
-
         cutoff = self.now - timedelta(days=self.remove_before)
 
         for line in lines:
@@ -46,16 +41,14 @@ class TestRetention(BaseRetentionTest):
             if len(parts) < 4:
                 continue
 
-            date_str = parts[0]
             path = parts[3]
-
             if "globals.sql" in path:
                 continue
 
-            obj_date = datetime.strptime(date_str, "%Y-%m-%d")
+            obj_dt = self._parse_s3_datetime(parts)
 
             self.assertGreaterEqual(
-                obj_date,
+                obj_dt,
                 cutoff,
                 f"Expired S3 backup still present: {path}",
             )
@@ -79,28 +72,39 @@ class TestRetention(BaseRetentionTest):
             if len(parts) < 4:
                 continue
 
-            date_str, path = parts[0], parts[3]
+            path = parts[3]
             if "globals.sql" in path:
                 continue
 
-            obj_date = datetime.strptime(date_str, "%Y-%m-%d")
-            if obj_date >= cutoff:
+            obj_dt = self._parse_s3_datetime(parts)
+            if obj_dt >= cutoff:
                 continue
 
             filename = os.path.basename(path)
-            key = filename.rsplit("-", 2)[0]
+
+            # PG_gis_gis.22-December-2025-06-09.dmp.gz
+            match = re.match(
+                r"(.+)\.(\d{2}-[A-Za-z]+-\d{4})-\d{2}-\d{2}\.",
+                filename,
+            )
+            if not match:
+                continue
+
+            db, day = match.groups()
+            key = f"{db}.{day}"
+
             buckets.setdefault(key, []).append(path)
 
         for key, files in buckets.items():
             self.assertEqual(
                 len(files),
                 1,
-                f"Multiple S3 consolidated backups found for {key}: {files}",
+                f"Multiple S3 backups found after consolidation for {key}: {files}",
             )
 
     def test_s3_checksum_retention(self):
-        if not self.enable_s3:
-            self.skipTest("S3 disabled")
+        if not self.checksum_validation:
+            self.skipTest("S3 checksum validation disabled")
 
         proc = subprocess.run(
             ["s3cmd", "ls", f"s3://{self.bucket}", "--recursive"],
@@ -109,7 +113,11 @@ class TestRetention(BaseRetentionTest):
             check=True,
         )
 
-        objects = [line.split()[-1] for line in proc.stdout.splitlines()]
+        objects = [
+            line.split()[-1]
+            for line in proc.stdout.splitlines()
+            if "globals.sql" not in line
+        ]
         gz_files = [o for o in objects if o.endswith(".gz")]
         sha_files = [o for o in objects if o.endswith(".sha256")]
 

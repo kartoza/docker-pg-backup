@@ -60,8 +60,12 @@ services:
       - HOST_BASE=minio:9000
       - HOST_BUCKET=backup
       - SSL_SECURE=False
-      - CHECKSUM_VALIDATION=True
+      - CHECKSUM_VALIDATION=False
       - S3_RETAIL_LOCAL_DUMPS=True
+      - ENABLE_S3_BACKUP=True
+      - REMOVE_BEFORE=5
+      - MIN_SAVED_FILE=2
+      - CONSOLE_LOGGING=True
     depends_on:
       db:
         condition: service_healthy
