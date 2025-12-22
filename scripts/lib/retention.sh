@@ -10,7 +10,7 @@ retention_log() {
 ############################################
 run_retention() {
   if [[ "${REMOVE_BEFORE}" -le 0 || -n "${TARGET_ARCHIVE:-}" ]]; then
-    retention_log "Either REMOVE_BEFORE=${REMOVE_BEFORE} is set to 0 or TARGET_ARCHIVE=${TARGET_ARCHIVE} is set, so no retention will run"
+    retention_log "Either REMOVE_BEFORE=${REMOVE_BEFORE} is set to 0 or TARGET_ARCHIVE=${TARGET_ARCHIVE:-} is set, so no retention will run"
     return 0
   fi
 

@@ -61,6 +61,7 @@ services:
       - HOST_BUCKET=backup
       - SSL_SECURE=False
       - CHECKSUM_VALIDATION=True
+      - S3_RETAIL_LOCAL_DUMPS=True
     depends_on:
       db:
         condition: service_healthy

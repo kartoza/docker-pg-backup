@@ -183,6 +183,11 @@ if [ -z "${CHECKSUM_VALIDATION}" ];then
   CHECKSUM_VALIDATION=false
 fi
 
+# If True, keeps all local dumps after upload
+if [ -z "${S3_RETAIL_LOCAL_DUMPS}" ];then
+  S3_RETAIL_LOCAL_DUMPS=false
+fi
+
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
 if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   STRING_LENGTH=30
