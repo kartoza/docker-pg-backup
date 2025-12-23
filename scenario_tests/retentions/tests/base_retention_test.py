@@ -15,9 +15,7 @@ class BaseRetentionTest(unittest.TestCase):
         self.remove_before = int(os.environ.get("REMOVE_BEFORE", "7"))
         self.min_saved = int(os.environ.get("MIN_SAVED_FILE", "2"))
         self.consolidate_after = int(os.environ.get("CONSOLIDATE_AFTER", "1"))
-        self.enable_s3 = os.environ.get("ENABLE_S3_BACKUP", "false").lower() == "true"
         self.bucket = os.environ.get("BUCKET")
         self.dump_prefix = os.environ.get("DUMPPREFIX", "")
         self.checksum_validation = os.environ.get("CHECKSUM_VALIDATION", "false").lower() == "true"
-
         self.now = datetime.now()

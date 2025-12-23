@@ -21,7 +21,7 @@ class TestRetentionS3(BaseRetentionTest):
         )
 
     def test_s3_retention_policy_applied(self):
-        if not self.enable_s3:
+        if self.remove_before <= 0:
             self.skipTest("S3 retention disabled")
 
         proc = subprocess.run(
@@ -54,7 +54,7 @@ class TestRetentionS3(BaseRetentionTest):
             )
 
     def test_s3_consolidation(self):
-        if not self.enable_s3 or self.consolidate_after <= 0:
+        if self.consolidate_after <= 0:
             self.skipTest("S3 consolidation disabled")
 
         proc = subprocess.run(

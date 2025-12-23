@@ -4,12 +4,42 @@ set -euo pipefail
 source /backup-scripts/pgenv.sh
 DB=gis
 
-BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}.dmp"
+
+
+if [ -z "${MONTH:-}" ]; then
+  export MONTH="$(date +%B)"
+fi
+
+if [ -z "${YEAR:-}" ]; then
+  export YEAR="$(date +%Y)"
+fi
+
+if [ -z "${MYBASEDIR:-}" ]; then
+  export MYBASEDIR="/${BUCKET:-backups}"
+fi
+
+if [ -z "${MYBACKUPDIR:-}" ]; then
+  export MYBACKUPDIR="${MYBASEDIR}/${YEAR}/${MONTH}"
+fi
+
+
+for list in ${MYBACKUPDIR}/*.dmp;do
+  backup_dir_filename=${list}
+  file_name=$(basename "${backup_dir_filename}")
+  datetime_part=$(basename "$file_name" .dmp | cut -d. -f2)
+  base_date="$(sed 's/-/ /1; s/-/ /1; s/-/ /1; s/-/:/' <<< "$datetime_part")"
+
+done
+
+BASE_FILENAME="${MYBACKUPDIR}/${file_name}"
+
 
 for i in {0..7}; do
-  OLDDATE=$(date -d "-$i day" +%d-%B-%Y-%H-%M)
+  OLDDATE=$(date -d "$base_date -$i day" +%d-%B-%Y-%H-%M)
+  echo "the old date is $OLDDATE"
   OLD_BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${OLDDATE}.dmp"
   OLD_BASE_FILENAME_ZIP="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${OLDDATE}.dmp.gz"
+  echo $OLD_BASE_FILENAME
 
   cp "$BASE_FILENAME" "$OLD_BASE_FILENAME"
 

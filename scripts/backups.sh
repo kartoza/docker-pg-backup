@@ -9,6 +9,36 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
 ############################################
+# Source env variables
+############################################
+
+# Set dynamic date/time variables that should be fresh for each backup run
+if [ -z "${MYDATE:-}" ]; then
+  export MYDATE="$(date +%d-%B-%Y-%H-%M)"
+fi
+
+if [ -z "${MONTH:-}" ]; then
+  export MONTH="$(date +%B)"
+fi
+
+if [ -z "${YEAR:-}" ]; then
+  export YEAR="$(date +%Y)"
+fi
+
+if [ -z "${MYBASEDIR:-}" ]; then
+  export MYBASEDIR="/${BUCKET:-backups}"
+fi
+
+if [ -z "${MYBACKUPDIR:-}" ]; then
+  export MYBACKUPDIR="${MYBASEDIR}/${YEAR}/${MONTH}"
+fi
+
+# Create backup directories
+mkdir -p "${MYBACKUPDIR}"
+mkdir -p "${MYBASEDIR}"
+
+
+############################################
 # Load libraries
 ############################################
 
@@ -58,7 +88,7 @@ check_db_ready
 ############################################
 case "${STORAGE_BACKEND}" in
   S3)
-    ENABLE_S3_BACKUP=true
+
 
     s3_init
 
@@ -69,7 +99,7 @@ case "${STORAGE_BACKEND}" in
     backup_databases
     ;;
   FILE|file)
-    ENABLE_S3_BACKUP=false
+
 
     backup_globals
     backup_databases

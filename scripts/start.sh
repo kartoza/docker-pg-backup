@@ -138,30 +138,14 @@ if [ -z "${DB_TABLES}" ]; then
   DB_TABLES=FALSE
 fi
 
-if [ -z "${ENABLE_S3_BACKUP}" ];then
-  ENABLE_S3_BACKUP=false
-fi
+
 
 if [ -z "${CLEANUP_DRY_RUN}" ];then
   CLEANUP_DRY_RUN=false
 fi
 
-if [ -z "${MYDATE}" ];then
-   MYDATE="$(date +%d-%B-%Y-%H-%M)"
-fi
-if [ -z "${MONTH}" ];then
-     MONTH="$(date +%B)"
-fi
-if [ -z "${YEAR}" ]; then
-  YEAR="$(date +%Y)"
-fi
 
-if [ -z "${MYBASEDIR}" ]; then
-   MYBASEDIR="/${BUCKET:-backups}"
-fi
-if [ -z "${MYBACKUPDIR}" ]; then
-  MYBACKUPDIR="${MYBASEDIR}/${YEAR}/${MONTH}"
-fi
+
 
 if [ -z "${TIME_MINUTES}" ]; then
   TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
@@ -184,8 +168,8 @@ if [ -z "${CHECKSUM_VALIDATION}" ];then
 fi
 
 # If True, keeps all local dumps after upload
-if [ -z "${S3_RETAIL_LOCAL_DUMPS}" ];then
-  S3_RETAIL_LOCAL_DUMPS=false
+if [ -z "${S3_RETAIN_LOCAL_DUMPS}" ];then
+  S3_RETAIN_LOCAL_DUMPS=false
 fi
 
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
@@ -246,8 +230,7 @@ function non_root_permission() {
 
 
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
-mkdir -p "${MYBACKUPDIR}"
-mkdir -p "${MYBASEDIR}"
+
 
 
 # Copy settings for cron file
@@ -260,14 +243,14 @@ configure_env_variables() {
     DEFAULT_REGION BUCKET HOST_BASE HOST_BUCKET SSL_SECURE
     DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_PASS POSTGRES_HOST
     DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION_PASS_PHRASE DB_DUMP_ENCRYPTION
-    PG_CONN_PARAMETERS DBLIST DB_TABLES ENABLE_S3_BACKUP CLEANUP_DRY_RUN
-    MYBASEDIR MYBACKUPDIR MYDATE CHECKSUM_VALIDATION
+    PG_CONN_PARAMETERS DBLIST DB_TABLES  CLEANUP_DRY_RUN
+    CHECKSUM_VALIDATION
   )
 
   # Vars that should be unquoted (numeric values)
   local unquoted_vars=(
     POSTGRES_PORT REMOVE_BEFORE CONSOLIDATE_AFTER MIN_SAVED_FILE RUN_ONCE
-    MONTH YEAR TIME_MINUTES CONSOLIDATE_AFTER_MINUTES
+    TIME_MINUTES CONSOLIDATE_AFTER_MINUTES
   )
 
   {

@@ -59,7 +59,7 @@ backup_globals() {
     fi
 
   else
-    mkdir -p "${MYBASEDIR}"
+
 
     db_log "Backing up globals.sql to filesystem (${MYBASEDIR})"
 
@@ -156,7 +156,7 @@ backup_single_database() {
 
     if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
       s3_upload "${tar_file}" || status="failure"
-      if [[ "${S3_RETAIL_LOCAL_DUMPS}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
+      if [[ "${S3_RETAIN_LOCAL_DUMPS}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
         cleanup_file "${tar_file}.sha256"
       fi
     fi
@@ -186,7 +186,7 @@ backup_single_database() {
 
     if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
       gzip -9 -c "${dump_file}" > "${gz_file}" || status="failure"
-      if [[ "${S3_RETAIL_LOCAL_DUMPS}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
+      if [[ "${S3_RETAIN_LOCAL_DUMPS}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
         cleanup_file "${dump_file}"
       fi
 
@@ -195,7 +195,7 @@ backup_single_database() {
       fi
 
       s3_upload "${gz_file}" || status="failure"
-      if [[ "${S3_RETAIL_LOCAL_DUMPS}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
+      if [[ "${S3_RETAIN_LOCAL_DUMPS}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
         cleanup_file "${gz_file}.sha256"
       fi
     fi
