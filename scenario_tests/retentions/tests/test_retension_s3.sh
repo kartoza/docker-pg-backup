@@ -12,4 +12,4 @@ PYTHONPATH=/lib \
 
 
 # Clean up artifact
-#s3cmd rm --force --recursive s3://${BUCKET}
+s3cmd rm --force --recursive s3://${BUCKET}

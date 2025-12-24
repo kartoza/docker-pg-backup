@@ -228,7 +228,7 @@ dump_tables() {
     psql ${PG_CONN_PARAMETERS} -d "${DATABASE}" -At -F '.' \
     -c "SELECT table_schema, table_name
         FROM information_schema.tables
-        WHERE table_schema NOT IN ('information_schema','pg_catalog','topology')
+        WHERE table_schema NOT IN ('information_schema','pg_catalog','topology', 'pg_toast')
         ORDER BY table_schema, table_name"
   )
 

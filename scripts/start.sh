@@ -145,8 +145,6 @@ if [ -z "${CLEANUP_DRY_RUN}" ];then
 fi
 
 
-
-
 if [ -z "${TIME_MINUTES}" ]; then
   TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
 fi
@@ -228,13 +226,7 @@ function non_root_permission() {
   done
 }
 
-
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
-
-
-
-# Copy settings for cron file
-cron_config
 
 configure_env_variables() {
   # Vars that should be quoted (strings, secrets, paths)
@@ -264,30 +256,34 @@ configure_env_variables() {
   } > /backup-scripts/pgenv.sh
 }
 
-configure_env_variables
+
 # Gosu preparations
-if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
-  USER_ID=${POSTGRES_UID:-1000}
-  GROUP_ID=${POSTGRES_GID:-1000}
-  USER_NAME=${USER:-postgresuser}
-  DB_GROUP_NAME=${GROUP_NAME:-postgresusers}
+user_permissions(){
 
-  export USER_NAME=${USER_NAME}
-  export DB_GROUP_NAME=${DB_GROUP_NAME}
+  if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
+    USER_ID=${POSTGRES_UID:-1000}
+    GROUP_ID=${POSTGRES_GID:-1000}
+    USER_NAME=${USER:-postgresuser}
+    DB_GROUP_NAME=${GROUP_NAME:-postgresusers}
 
-  # Add group
-  if [ ! $(getent group "${DB_GROUP_NAME}") ]; then
-    groupadd -r "${DB_GROUP_NAME}" -g "${GROUP_ID}"
+    export USER_NAME=${USER_NAME}
+    export DB_GROUP_NAME=${DB_GROUP_NAME}
+
+    # Add group
+    if [ ! $(getent group "${DB_GROUP_NAME}") ]; then
+      groupadd -r "${DB_GROUP_NAME}" -g "${GROUP_ID}"
+    fi
+
+    # Add user to system
+    if id "${USER_NAME}" &>/dev/null; then
+        echo ' skipping user creation'
+    else
+        useradd -l -m -d /home/"${USER_NAME}"/ -u "${USER_ID}" --gid "${GROUP_ID}" -s /bin/bash -G "${DB_GROUP_NAME}" "${USER_NAME}"
+    fi
+
   fi
+}
 
-  # Add user to system
-  if id "${USER_NAME}" &>/dev/null; then
-      echo ' skipping user creation'
-  else
-      useradd -l -m -d /home/"${USER_NAME}"/ -u "${USER_ID}" --gid "${GROUP_ID}" -s /bin/bash -G "${DB_GROUP_NAME}" "${USER_NAME}"
-  fi
-
-fi
 
 setup_cron_env() {
   if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
@@ -303,7 +299,7 @@ setup_cron_env() {
   fi
 }
 
-run_backup() {
+run_entrypoint_task() {
   non_root_permission "${user}" "${group}"
 
   if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
@@ -321,5 +317,8 @@ run_backup() {
 }
 
 # Main Entrypoint
+cron_config
+configure_env_variables
+user_permissions
 setup_cron_env
-run_backup
+run_entrypoint_task

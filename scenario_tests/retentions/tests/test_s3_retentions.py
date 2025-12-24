@@ -1,10 +1,10 @@
 import os
-import subprocess
 import re
+import subprocess
 import time
 from datetime import datetime, timedelta
-from base_retention_test import BaseRetentionTest
 
+from base_retention_test import BaseRetentionTest
 
 S3_LS_PATTERN = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})\s+"

@@ -62,7 +62,7 @@ services:
       - SSL_SECURE=False
       - CHECKSUM_VALIDATION=False
       - S3_RETAIN_LOCAL_DUMPS=True
-      - REMOVE_BEFORE=5
+      - REMOVE_BEFORE=3
       - MIN_SAVED_FILE=2
       - CONSOLE_LOGGING=True
     depends_on:
