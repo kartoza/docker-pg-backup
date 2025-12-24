@@ -1,135 +1,233 @@
 import os
 import subprocess
 import re
+import time
 from datetime import datetime, timedelta
 from base_retention_test import BaseRetentionTest
+
+
+S3_LS_PATTERN = re.compile(
+    r"^(?P<date>\d{4}-\d{2}-\d{2})\s+"
+    r"(?P<time>\d{2}:\d{2})\s+"
+    r"(?P<size>\d+)\s+"
+    r"(?P<path>s3://.+)$"
+)
+
+BACKUP_PATTERN = re.compile(
+    # PG_gis_gis.22-December-2025-06-09.dmp.gz
+    r"(?P<db>.+)\."
+    r"(?P<day>\d{2}-[A-Za-z]+-\d{4})-"
+    r"\d{2}-\d{2}\."
+)
+
+# ------------------------------------------------------------------
+# Port of extract_ts_from_filename (bash)
+# ------------------------------------------------------------------
+_TS_PATTERN = re.compile(
+    r"\.(\d{2}-[A-Za-z]+-\d{4}-\d{2}-\d{2})\."
+)
+
+
+def extract_ts_from_filename(fname: str) -> int:
+    """
+    Bash-equivalent of extract_ts_from_filename()
+
+    Returns epoch seconds, or 0 if no valid timestamp is found.
+    """
+    m = _TS_PATTERN.search(fname)
+    if not m:
+        return 0
+
+    try:
+        dt = datetime.strptime(m.group(1), "%d-%B-%Y-%H-%M")
+    except ValueError:
+        return 0
+
+    # Match `date -d` local-time semantics
+    return int(time.mktime(dt.timetuple()))
 
 
 class TestRetentionS3(BaseRetentionTest):
     """
     Retention scripts are assumed to have already run.
+    Tests validate *observable outcomes*, not script execution.
     """
 
     # ------------------------------------------------------------------
-    # S3 retention
+    # Helpers
     # ------------------------------------------------------------------
-    def _parse_s3_datetime(self, parts):
-        # parts: ['2025-12-22', '06:09', '3114', 's3://...']
-        return datetime.strptime(
-            f"{parts[0]} {parts[1]}",
-            "%Y-%m-%d %H:%M",
-        )
+    def _run_s3_ls(self):
+        try:
+            proc = subprocess.run(
+                ["s3cmd", "ls", f"s3://{self.bucket}", "--recursive"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            self.fail(f"s3cmd ls failed: {e.stderr or e.stdout}")
 
-    def test_s3_retention_policy_applied(self):
+        lines = [l for l in proc.stdout.splitlines() if l.strip()]
+        self.assertTrue(lines, "s3cmd returned no output")
+        return lines
+
+    def _parse_s3_line(self, line):
+        """
+        Returns (datetime, path) or None if line is not parseable.
+        """
+        match = S3_LS_PATTERN.match(line)
+        if not match:
+            return None
+
+        try:
+            obj_dt = datetime.strptime(
+                f"{match.group('date')} {match.group('time')}",
+                "%Y-%m-%d %H:%M",
+            )
+        except ValueError:
+            return None
+
+        return obj_dt, match.group("path")
+
+    def _assert_now_is_valid(self):
+        self.assertIsNotNone(self.now, "self.now must be set in BaseRetentionTest")
+        self.assertIsInstance(self.now, datetime, "self.now must be datetime")
+
+    # ------------------------------------------------------------------
+    # Retention
+    # ------------------------------------------------------------------
+    def test_s3_retention_deletes_expired_objects(self):
         if self.remove_before <= 0:
             self.skipTest("S3 retention disabled")
 
-        proc = subprocess.run(
-            ["s3cmd", "ls", f"s3://{self.bucket}", "--recursive"],
-            capture_output=True,
-            text=True,
-            check=True,
+        self._assert_now_is_valid()
+
+        cutoff = int(
+            (self.now - timedelta(days=self.remove_before)).timestamp()
         )
 
-        lines = proc.stdout.splitlines()
-        self.assertTrue(lines, "No objects found in S3 bucket")
+        expired = []
 
-        cutoff = self.now - timedelta(days=self.remove_before)
+        for line in self._run_s3_ls():
+            parsed = self._parse_s3_line(line)
+            self.assertIsNotNone(parsed, f"Failed to parse s3cmd line: {line}")
 
-        for line in lines:
-            parts = line.split()
-            if len(parts) < 4:
+            _, path = parsed
+
+            # mirror shell logic
+            if not path or path.endswith("globals.sql"):
                 continue
 
-            path = parts[3]
-            if "globals.sql" in path:
+            fname = os.path.basename(path)
+            ts = extract_ts_from_filename(fname)
+
+            # (( ts == 0 || ts >= cutoff )) && continue
+            if ts == 0 or ts >= cutoff:
                 continue
 
-            obj_dt = self._parse_s3_datetime(parts)
+            expired.append((datetime.fromtimestamp(ts), path))
 
-            self.assertGreaterEqual(
-                obj_dt,
-                cutoff,
-                f"Expired S3 backup still present: {path}",
+        if expired:
+            details = "\n".join(
+                f"{dt.isoformat()}  {path}" for dt, path in expired
+            )
+            self.fail(
+                "Expired S3 backups still exist (retention violation):\n"
+                f"{details}"
             )
 
+        self.assertTrue(
+            True,
+            f"No S3 backups older than {self.remove_before} days found",
+        )
+
+    # ------------------------------------------------------------------
+    # Consolidation
+    # ------------------------------------------------------------------
     def test_s3_consolidation(self):
         if self.consolidate_after <= 0:
             self.skipTest("S3 consolidation disabled")
 
-        proc = subprocess.run(
-            ["s3cmd", "ls", f"s3://{self.bucket}", "--recursive"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
+        self._assert_now_is_valid()
         cutoff = self.now - timedelta(days=self.consolidate_after)
+
         buckets = {}
+        examined = 0
 
-        for line in proc.stdout.splitlines():
-            parts = line.split()
-            if len(parts) < 4:
+        for line in self._run_s3_ls():
+            parsed_line = self._parse_s3_line(line)
+            if not parsed_line:
                 continue
 
-            path = parts[3]
-            if "globals.sql" in path:
+            obj_dt, path = parsed_line
+            if path.endswith("globals.sql"):
                 continue
 
-            obj_dt = self._parse_s3_datetime(parts)
             if obj_dt >= cutoff:
                 continue
 
             filename = os.path.basename(path)
-
-            # PG_gis_gis.22-December-2025-06-09.dmp.gz
-            match = re.match(
-                r"(.+)\.(\d{2}-[A-Za-z]+-\d{4})-\d{2}-\d{2}\.",
-                filename,
-            )
+            match = BACKUP_PATTERN.search(filename)
             if not match:
                 continue
 
-            db, day = match.groups()
-            key = f"{db}.{day}"
-
+            examined += 1
+            key = f"{match.group('db')}.{match.group('day')}"
             buckets.setdefault(key, []).append(path)
+
+        self.assertGreater(
+            examined,
+            0,
+            "No eligible backups found to validate consolidation",
+        )
 
         for key, files in buckets.items():
             self.assertEqual(
                 len(files),
                 1,
-                f"Multiple S3 backups found after consolidation for {key}: {files}",
+                f"Multiple backups found after consolidation for {key}: {files}",
             )
 
+    # ------------------------------------------------------------------
+    # Checksums
+    # ------------------------------------------------------------------
     def test_s3_checksum_retention(self):
         if not self.checksum_validation:
             self.skipTest("S3 checksum validation disabled")
 
-        proc = subprocess.run(
-            ["s3cmd", "ls", f"s3://{self.bucket}", "--recursive"],
-            capture_output=True,
-            text=True,
-            check=True,
+        objects = []
+        for line in self._run_s3_ls():
+            parsed_line = self._parse_s3_line(line)
+            if not parsed_line:
+                continue
+
+            _, path = parsed_line
+            if path.endswith("globals.sql"):
+                continue
+
+            objects.append(path)
+
+        gz_files = {o for o in objects if o.endswith(".gz")}
+        sha_files = {o for o in objects if o.endswith(".sha256")}
+
+        self.assertTrue(
+            gz_files,
+            "No .gz backups found to validate checksum retention",
         )
 
-        objects = [
-            line.split()[-1]
-            for line in proc.stdout.splitlines()
-            if "globals.sql" not in line
-        ]
-        gz_files = [o for o in objects if o.endswith(".gz")]
-        sha_files = [o for o in objects if o.endswith(".sha256")]
-
-        if self.checksum_validation:
-            for gz in gz_files:
-                self.assertIn(
-                    f"{gz}.sha256",
-                    objects,
-                    f"Missing checksum for {gz}",
-                )
-        else:
-            self.assertFalse(
+        # Forward check: every .gz has a checksum
+        for gz in gz_files:
+            self.assertIn(
+                f"{gz}.sha256",
                 sha_files,
-                f"Checksum files found when disabled: {sha_files}",
+                f"Missing checksum for {gz}",
+            )
+
+        # Reverse check: no orphaned checksums
+        for sha in sha_files:
+            base = sha[:-7]  # strip .sha256
+            self.assertIn(
+                base,
+                gz_files,
+                f"Orphaned checksum without data file: {sha}",
             )
