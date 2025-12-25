@@ -19,7 +19,7 @@ s3_restore_init() {
   if [[ -f "${EXTRA_CONFIG_DIR:-}/s3cfg" ]]; then
     cp -f "${EXTRA_CONFIG_DIR}/s3cfg" /root/.s3cfg
   else
-    envsubst < /build_data/s3cfg > /root/.s3cfg
+    init_s3
   fi
 }
 
