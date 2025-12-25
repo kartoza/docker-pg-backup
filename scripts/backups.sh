@@ -67,7 +67,9 @@ configure_sources() {
   done
 }
 configure_sources
-
+if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+  exec >> /proc/1/fd/1 2>&1
+fi
 ############################################
 # Traps
 ############################################

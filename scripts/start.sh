@@ -170,6 +170,11 @@ if [ -z "${S3_RETAIN_LOCAL_DUMPS}" ];then
   S3_RETAIN_LOCAL_DUMPS=false
 fi
 
+if [ -z "${CONSOLE_LOGGING}" ];then
+  CONSOLE_LOGGING=false
+fi
+
+
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
 if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   STRING_LENGTH=30
@@ -179,16 +184,8 @@ if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
 fi
 
 build_cron() {
-  if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-    CRON_LOG_REDIRECT=">> /proc/1/fd/1 2>&1"
-  else
-    CRON_LOG_REDIRECT=">> /var/log/cron.out 2>&1"
-    mkdir -p /var/log
-    touch /var/log/cron.out
-  fi
-
   cat > /backup-scripts/backups-cron <<EOF
-${CRON_SCHEDULE} /bin/bash /backup-scripts/backups.sh ${CRON_LOG_REDIRECT}
+${CRON_SCHEDULE} /bin/bash /backup-scripts/backups.sh
 
 EOF
 }
@@ -236,7 +233,7 @@ configure_env_variables() {
     DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_PASS POSTGRES_HOST
     DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION_PASS_PHRASE DB_DUMP_ENCRYPTION
     PG_CONN_PARAMETERS DBLIST DB_TABLES  CLEANUP_DRY_RUN
-    CHECKSUM_VALIDATION
+    CHECKSUM_VALIDATION CONSOLE_LOGGING
   )
 
   # Vars that should be unquoted (numeric values)
@@ -305,10 +302,12 @@ run_entrypoint_task() {
   if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
     echo -e "\e[32m ------------------------------------------------- \033[0m"
     echo -e "\e[32m [Entrypoint] Run backup script as a once off job. \033[0m"
+    echo -e "\e[32m [Entrypoint] If CONSOLE_LOGGING=True, logs appear in Docker output else the logs are written to file. \033[0m"
     /backup-scripts/backups.sh
   else
     echo -e "\e[32m ----------------------------------------------------------- \033[0m"
     echo -e "\e[32m [Entrypoint] Run backup script as a cron job in foreground. \033[0m"
+    echo -e "\e[32m [Entrypoint] If CONSOLE_LOGGING=True, logs appear in Docker output else the logs are written to file. \033[0m"
     chmod gu+rw /var/run
     chmod gu+s /usr/sbin/cron
     eval "${cron_tab_command}"
