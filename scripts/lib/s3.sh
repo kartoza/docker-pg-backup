@@ -7,13 +7,28 @@ s3_log() {
   log "[S3] $*"
 }
 
+init_s3() {
+  cat > /root/.s3cfg <<EOF
+[default]
+host_base = ${HOST_BASE}
+host_bucket = ${HOST_BUCKET}
+bucket_location = ${DEFAULT_REGION}
+use_https = ${SSL_SECURE}
+# Setup access keys
+access_key =  ${ACCESS_KEY_ID}
+secret_key = ${SECRET_ACCESS_KEY}
+# Enable S3 v4 signature APIs
+signature_v2 = False
+EOF
+}
+
 s3_init() {
   s3_log "Initializing S3 backend"
 
   if [[ -f "${EXTRA_CONFIG_DIR:-}/s3cfg" ]]; then
     cp "${EXTRA_CONFIG_DIR}/s3cfg" /root/.s3cfg
   else
-    envsubst < /build_data/s3cfg > /root/.s3cfg
+    init_s3
   fi
 
   s3cmd ls "s3://${BUCKET}" >/dev/null 2>&1 || s3cmd mb "s3://${BUCKET}"

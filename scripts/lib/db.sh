@@ -40,7 +40,7 @@ check_db_ready() {
 # Globals backup
 ############################################
 backup_globals() {
-  db_log "Starting globals backup"
+  db_log "Starting globals backup at $(date +%d-%B-%Y-%H-%M)"
 
   set -o pipefail
 
@@ -51,9 +51,9 @@ backup_globals() {
       pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
       | s3cmd put - "s3://${BUCKET}/globals.sql"
     then
-      db_log "Globals backup to S3 completed successfully"
+      db_log "Globals backup to S3 completed successfully at $(date +%d-%B-%Y-%H-%M)"
     else
-      db_log "ERROR: Globals backup to S3 failed"
+      db_log "ERROR: Globals backup to S3 failed at $(date +%d-%B-%Y-%H-%M)"
       notify_monitoring "failure"
       exit 1
     fi
@@ -67,9 +67,9 @@ backup_globals() {
       pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
       > "${MYBASEDIR}/globals.sql"
     then
-      db_log "Globals backup to filesystem completed successfully"
+      db_log "Globals backup to filesystem completed successfully at $(date +%d-%B-%Y-%H-%M)"
     else
-      db_log "ERROR: Globals backup to filesystem failed"
+      db_log "ERROR: Globals backup to filesystem failed at $(date +%d-%B-%Y-%H-%M)"
       notify_monitoring "failure"
       exit 1
     fi
@@ -115,7 +115,7 @@ backup_single_database() {
   ##########################################
   FORMAT="$(get_dump_format "${DUMP_ARGS}")"
 
-  db_log "Starting backup of database ${DB} using format ${FORMAT}"
+  db_log "Starting backup of database ${DB} using format ${FORMAT} at $(date +%d-%B-%Y-%H-%M)"
 
   ##########################################
   # Perform dump
@@ -207,9 +207,9 @@ backup_single_database() {
   # Final status + monitoring
   ##########################################
   if [[ "${status}" == "success" ]]; then
-    db_log "Backup completed for ${DB}"
+    db_log "Backup completed for ${DB} at $(date +%d-%B-%Y-%H-%M)"
   else
-    db_log "Backup FAILED for ${DB}"
+    db_log "Backup FAILED for ${DB} at $(date +%d-%B-%Y-%H-%M)"
   fi
 
   notify_monitoring "${status}" || true

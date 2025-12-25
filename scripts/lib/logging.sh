@@ -15,10 +15,25 @@ init_logging() {
 }
 
 log() {
-  local msg="[$(date --iso-8601=seconds)] $*"
+  local msg
+  local colorize
+
+
+  if [[ "$#" -ge 2 && "${!#}" =~ ^([Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee])$ ]]; then
+    colorize="${!#}"
+    set -- "${@:1:$(($#-1))}"
+  else
+    colorize="${COLORIZE:-false}"
+  fi
+
+  msg="[$(date --iso-8601=seconds)] $*"
 
   if [[ "${LOG_MODE}" == "stdout" ]]; then
-    echo "${msg}"
+    if [[ "${colorize}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      echo -e "\e[32m${msg}\033[0m"
+    else
+      echo "${msg}"
+    fi
   else
     echo "${msg}" >> "${LOG_FILE}"
   fi
