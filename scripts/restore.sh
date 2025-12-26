@@ -57,9 +57,18 @@ init_logging
 
 log "Restore job started"
 
-if [[ -n "${TARGET_DB}" ]]; then
-  run_restore "${TARGET_ARCHIVE}" "${TARGET_DB}"
-fi
+if [[ -n "${TARGET_DB}" && -n "${TARGET_ARCHIVE:-}" ]]; then
+  run_restore "${TARGET_ARCHIVE:-}" "${TARGET_DB}"
 
+elif [[ -n "${TARGET_DB}" && -n "${TARGET_ARCHIVE_DATE_ONLY:-}" ]]; then
+  run_restore "${TARGET_ARCHIVE_DATE_ONLY:-}" "${TARGET_DB}"
+
+elif [[ -n "${TARGET_DB}" && -n "${TARGET_ARCHIVE_DATETIME:-}" ]]; then
+  run_restore "${TARGET_ARCHIVE_DATETIME:-}" "${TARGET_DB}"
+
+else
+  echo "Error: TARGET_DB has a value ${TARGET_DB} and archive has a value ${TARGET_ARCHIVE:-},   must be set"
+  exit 1
+fi
 
 log "Restore job finished"

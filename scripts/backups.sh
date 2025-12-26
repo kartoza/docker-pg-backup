@@ -83,7 +83,7 @@ init_logging
 
 
 log "Backup job started at $(date +%d-%B-%Y-%H-%M)" true
-COLORIZE=false
+
 
 check_db_ready
 

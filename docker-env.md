@@ -60,4 +60,7 @@ You need to specify the following environment variables backup to S3
 * `BUCKET` Indicates the bucket name that will be created.
 * `S3_RETAIN_LOCAL_DUMPS` Boolean value to indicate whether you also retain
 local dumps of the database. Default if false to allow cleanup of the local dumps.
+* `TARGET_ARCHIVE_DATE_ONLY` Set the date for restoring a specific backup i.e. '2023-03-24'
+* `TARGET_ARCHIVE_DATETIME` Set the datetime for restoring a specific backup i.e. '2023-03-24-14-30'
+
 
