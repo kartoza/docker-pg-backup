@@ -131,11 +131,59 @@ if [ -z "${DB_DUMP_ENCRYPTION}" ]; then
 fi
 
 if [ -z "${CONSOLE_LOGGING}" ]; then
-  CONSOLE_LOGGING=FALSE
+  CONSOLE_LOGGING=True
 fi
 
 if [ -z "${DB_TABLES}" ]; then
   DB_TABLES=FALSE
+fi
+
+
+
+if [ -z "${CLEANUP_DRY_RUN}" ];then
+  CLEANUP_DRY_RUN=false
+fi
+
+
+if [ -z "${TIME_MINUTES}" ]; then
+  TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
+fi
+
+if [ -z "${MIN_SAVED_FILE}" ]; then
+   MIN_SAVED_FILE=0
+fi
+
+if [ -z "${CONSOLIDATE_AFTER}" ]; then
+   CONSOLIDATE_AFTER=0
+fi
+
+if [ -z "${CONSOLIDATE_AFTER_MINUTES}" ]; then
+   CONSOLIDATE_AFTER_MINUTES=$((CONSOLIDATE_AFTER * 24 * 60))
+fi
+
+if [ -z "${CHECKSUM_VALIDATION}" ];then
+  CHECKSUM_VALIDATION=false
+fi
+
+# If True, keeps all local dumps after upload
+if [ -z "${S3_RETAIN_LOCAL_DUMPS}" ];then
+  S3_RETAIN_LOCAL_DUMPS=false
+fi
+
+if [ -z "${CONSOLE_LOGGING}" ];then
+  CONSOLE_LOGGING=false
+fi
+
+if [ -z "${TARGET_ARCHIVE_DATETIME}" ];then
+  TARGET_ARCHIVE_DATETIME=
+fi
+
+if [ -z "${TARGET_ARCHIVE_DATE_ONLY}" ];then
+  TARGET_ARCHIVE_DATE_ONLY=
+fi
+
+if [ -z "${MONITORING_ENDPOINT_COMMAND}" ];then
+   MONITORING_ENDPOINT_COMMAND=
 fi
 
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
@@ -146,18 +194,23 @@ if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
   export DB_DUMP_ENCRYPTION_PASS_PHRASE
 fi
 
+build_cron() {
+  cat > /backup-scripts/backups-cron <<EOF
+${CRON_SCHEDULE} /bin/bash /backup-scripts/backups.sh
+
+EOF
+}
+
 
 function cron_config() {
-  if [[ -f ${EXTRA_CONFIG_DIR}/backups-cron ]]; then
-      envsubst < ${EXTRA_CONFIG_DIR}/backups-cron > /backup-scripts/backups-cron
+  if [[ -f "${EXTRA_CONFIG_DIR}/backups-cron" ]]; then
+    envsubst < "${EXTRA_CONFIG_DIR}/backups-cron" > /backup-scripts/backups-cron
   else
-      # default value
+    if [[ -z "${CRON_SCHEDULE}" ]]; then
+      export CRON_SCHEDULE='0 23 * * *'
+    fi
 
-      if [ -z "${CRON_SCHEDULE}" ]; then
-        export CRON_SCHEDULE='0 23 * * *'
-      fi
-      envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
-
+    build_cron
   fi
 }
 
@@ -181,109 +234,101 @@ function non_root_permission() {
   done
 }
 
-
 mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
-# Copy settings for cron file
-if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
-   export CONSOLE_LOGGING_OUTPUT='/proc/1/fd/1 2>&1'
-else
-   export CONSOLE_LOGGING_OUTPUT='/var/log/cron.out 2>&1'
-fi
 
-cron_config
+configure_env_variables() {
+  # Vars that should be quoted (strings, secrets, paths)
+  local quoted_vars=(
+    PATH EXTRA_CONF_DIR STORAGE_BACKEND ACCESS_KEY_ID SECRET_ACCESS_KEY
+    DEFAULT_REGION BUCKET HOST_BASE HOST_BUCKET SSL_SECURE
+    DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_PASS POSTGRES_HOST
+    DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION_PASS_PHRASE DB_DUMP_ENCRYPTION
+    PG_CONN_PARAMETERS DBLIST DB_TABLES  CLEANUP_DRY_RUN
+    CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND
+  )
 
-function configure_env_variables() {
-echo "
-export PATH=\"${PATH}\"
-export EXTRA_CONF_DIR=\"${EXTRA_CONF_DIR}\"
-export STORAGE_BACKEND=\"${STORAGE_BACKEND}\"
-export ACCESS_KEY_ID=\"${ACCESS_KEY_ID}\"
-export SECRET_ACCESS_KEY=\"${SECRET_ACCESS_KEY}\"
-export DEFAULT_REGION=\"${DEFAULT_REGION}\"
-export BUCKET=\"${BUCKET}\"
-export HOST_BASE=\"${HOST_BASE}\"
-export HOST_BUCKET=\"${HOST_BUCKET}\"
-export SSL_SECURE=\"${SSL_SECURE}\"
-export DUMP_ARGS=\"${DUMP_ARGS}\"
-export RESTORE_ARGS=\"${RESTORE_ARGS}\"
-export POSTGRES_USER=\"${POSTGRES_USER}\"
-export POSTGRES_PASS=\"$POSTGRES_PASS\"
-export POSTGRES_PORT="${POSTGRES_PORT}"
-export POSTGRES_HOST=\"${POSTGRES_HOST}\"
-export DUMPPREFIX=\"${DUMPPREFIX}\"
-export ARCHIVE_FILENAME=\"${ARCHIVE_FILENAME}\"
-export REMOVE_BEFORE="${REMOVE_BEFORE}"
-export CONSOLIDATE_AFTER="${CONSOLIDATE_AFTER}"
-export MIN_SAVED_FILE="${MIN_SAVED_FILE}"
-export RUN_ONCE="${RUN_ONCE}"
-DB_DUMP_ENCRYPTION_PASS_PHRASE=\"${DB_DUMP_ENCRYPTION_PASS_PHRASE}\"
-DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
-export PG_CONN_PARAMETERS=\"${PG_CONN_PARAMETERS}\"
-export DBLIST=\"${DBLIST}\"
-export DB_TABLES=\"${DB_TABLES}\"
- " > /backup-scripts/pgenv.sh
+  # Vars that should be unquoted (numeric values)
+  local unquoted_vars=(
+    POSTGRES_PORT REMOVE_BEFORE CONSOLIDATE_AFTER MIN_SAVED_FILE RUN_ONCE
+    TIME_MINUTES CONSOLIDATE_AFTER_MINUTES
+  )
 
-echo "Start script running with these environment options"
-set | grep PG
+  {
+    for var in "${quoted_vars[@]}"; do
+      printf 'export %s="%s"\n' "$var" "${!var}"
+    done
 
+    for var in "${unquoted_vars[@]}"; do
+      printf 'export %s=%s\n' "$var" "${!var}"
+    done
+  } > /backup-scripts/pgenv.sh
 }
-configure_env_variables
 
-if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/proc/1/fd/1 2>\&1#g' /backup-scripts/backups.sh
-else
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/var/log/cron.out 2>\&1#g' /backup-scripts/backups.sh
-fi
-
-# Fix variables not interpolated
-sed -i "s/'//g" /backup-scripts/backups-cron
-sed -i 's/\"//g' /backup-scripts/backups-cron
-
-# Setup cron job
 
 # Gosu preparations
-if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
-  USER_ID=${POSTGRES_UID:-1000}
-  GROUP_ID=${POSTGRES_GID:-1000}
-  USER_NAME=${USER:-postgresuser}
-  DB_GROUP_NAME=${GROUP_NAME:-postgresusers}
+user_permissions(){
 
-  export USER_NAME=${USER_NAME}
-  export DB_GROUP_NAME=${DB_GROUP_NAME}
+  if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
+    USER_ID=${POSTGRES_UID:-1000}
+    GROUP_ID=${POSTGRES_GID:-1000}
+    USER_NAME=${USER:-postgresuser}
+    DB_GROUP_NAME=${GROUP_NAME:-postgresusers}
 
-  # Add group
-  if [ ! $(getent group "${DB_GROUP_NAME}") ]; then
-    groupadd -r "${DB_GROUP_NAME}" -g "${GROUP_ID}"
+    export USER_NAME=${USER_NAME}
+    export DB_GROUP_NAME=${DB_GROUP_NAME}
+
+    # Add group
+    if [ ! $(getent group "${DB_GROUP_NAME}") ]; then
+      groupadd -r "${DB_GROUP_NAME}" -g "${GROUP_ID}"
+    fi
+
+    # Add user to system
+    if id "${USER_NAME}" &>/dev/null; then
+        echo ' skipping user creation'
+    else
+        useradd -l -m -d /home/"${USER_NAME}"/ -u "${USER_ID}" --gid "${GROUP_ID}" -s /bin/bash -G "${DB_GROUP_NAME}" "${USER_NAME}"
+    fi
+
   fi
+}
 
-  # Add user to system
-  if id "${USER_NAME}" &>/dev/null; then
-      echo ' skipping user creation'
+
+setup_cron_env() {
+  if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
+    user="root"
+    group="root"
+    cron_tab_command="crontab /backup-scripts/backups-cron"
+    cron_command="cron -f"
   else
-      useradd -l -m -d /home/"${USER_NAME}"/ -u "${USER_ID}" --gid "${GROUP_ID}" -s /bin/bash -G "${DB_GROUP_NAME}" "${USER_NAME}"
+    user="${USER_NAME}"
+    group="${DB_GROUP_NAME}"
+    cron_tab_command="crontab -u ${user} /backup-scripts/backups-cron"
+    cron_command="gosu ${user} cron -f"
   fi
+}
 
-fi
+run_entrypoint_task() {
+  non_root_permission "${user}" "${group}"
 
-if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
-  user="root"
-  group="root"
-  cron_tab_command="crontab /backup-scripts/backups-cron"
-  cron_command="cron -f"
-else
-  user="${USER_NAME}"
-  group="${DB_GROUP_NAME}"
-  cron_tab_command="crontab -u ${user} /backup-scripts/backups-cron"
-  cron_command="gosu ${USER_NAME} cron -f"
-fi
+  if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
+    echo -e "\e[32m ------------------------------------------------- \033[0m"
+    echo -e "\e[32m [Entrypoint] Run backup script as a once off job. \033[0m"
+    echo -e "\e[32m [Entrypoint] If CONSOLE_LOGGING=True, logs appear in Docker output else the logs are written to file. \033[0m"
+    /backup-scripts/backups.sh
+  else
+    echo -e "\e[32m ----------------------------------------------------------- \033[0m"
+    echo -e "\e[32m [Entrypoint] Run backup script as a cron job in foreground. \033[0m"
+    echo -e "\e[32m [Entrypoint] If CONSOLE_LOGGING=True, logs appear in Docker output else the logs are written to file. \033[0m"
+    chmod gu+rw /var/run
+    chmod gu+s /usr/sbin/cron
+    eval "${cron_tab_command}"
+    eval "${cron_command}"
+  fi
+}
 
-non_root_permission "${user}" "${group}"
-
-if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
-  /backup-scripts/backups.sh
-else
-  chmod gu+rw /var/run
-  chmod gu+s /usr/sbin/cron
-  ${cron_tab_command}
-  ${cron_command}
-fi
+# Main Entrypoint
+cron_config
+configure_env_variables
+user_permissions
+setup_cron_env
+run_entrypoint_task

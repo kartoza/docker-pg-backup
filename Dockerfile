@@ -19,7 +19,7 @@ RUN touch /var/log/cron.log
 ENV \
     PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-ADD build_data /build_data
+
 ADD scripts /backup-scripts
 RUN echo ${POSTGRES_MAJOR_VERSION} > /tmp/pg_version.txt && chmod 0755 /backup-scripts/*.sh
 RUN sed -i 's/PostGIS/PgBackup/' ~/.bashrc

@@ -73,8 +73,11 @@ jobs:
     strategy:
       matrix:
         scenario:
-          - restore
-          - s3
+          - file_restore
+          - s3_upload
+          - s3_restore
+          - ownership
+          - retentions
     steps:
       - uses: actions/checkout@v6
       - name: Download artifact

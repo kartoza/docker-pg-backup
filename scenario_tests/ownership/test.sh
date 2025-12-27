@@ -11,15 +11,25 @@ if [[ $(dpkg -l | grep "docker-compose") > /dev/null ]];then
   else
     VERSION='docker compose'
 fi
+
+################################################
+# Perform DB backup and restore using gosu
+#################################################
 ${VERSION} up -d
 
-sleep 30
+sleep 120
 
-# Perform DB backup to s3 endpoint
+# Backup DB
 ${VERSION} exec pg_restore  /backup-scripts/backups.sh
+
+# Restore DB backup
+${VERSION} exec pg_restore  /backup-scripts/restore.sh
 
 # Execute tests
 ${VERSION} exec pg_restore /bin/bash /tests/test_restore.sh
 
 
 ${VERSION} down -v
+
+
+
