@@ -280,3 +280,13 @@ resolve_local_backup_from_date() {
     return 0
   }
 }
+
+wait_for_next_minute() {
+  local now
+  local seconds
+
+  now="$(date +%S)"
+  seconds=$((60 - 10#$now))
+
+  (( seconds > 0 )) && sleep "${seconds}"
+}

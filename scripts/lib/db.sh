@@ -114,6 +114,8 @@ backup_single_database() {
   # Detect dump format
   ##########################################
   FORMAT="$(get_dump_format "${DUMP_ARGS}")"
+  local start_minute
+  start_minute="$(date +%Y-%m-%d-%H-%M)"
 
   db_log "Starting backup of database ${DB} using format ${FORMAT} at $(date +%d-%B-%Y-%H-%M)"
 
@@ -207,9 +209,16 @@ backup_single_database() {
   # Final status + monitoring
   ##########################################
   if [[ "${status}" == "success" ]]; then
-    db_log "Backup completed for ${DB} at $(date +%d-%B-%Y-%H-%M)"
-  else
-    db_log "Backup FAILED for ${DB} at $(date +%d-%B-%Y-%H-%M)"
+    local end_minute
+    end_minute="$(date +%Y-%m-%d-%H-%M)"
+
+    if [[ "${start_minute}" == "${end_minute}" ]]; then
+      db_log "Dump finished within same minute, waiting for minute rollover to avoid timestamp collision" true
+      wait_for_next_minute
+    fi
+
+    # Recompute MYDATE for the next DB
+    MYDATE="$(date +%d-%B-%Y-%H-%M)"
   fi
 
   notify_monitoring "${status}" || true
