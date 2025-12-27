@@ -141,7 +141,10 @@ retry() {
   done
 }
 
-
+############################################
+# get dump format Helper
+# Usage:
+############################################
 get_dump_format() {
   local DUMP_ARGS="$1"
   local FORMAT
@@ -158,6 +161,10 @@ get_dump_format() {
    echo "${FORMAT}"
 }
 
+############################################
+# Extract timestamp  Helper
+# Usage:
+############################################
 extract_ts_from_filename() {
   local fname="$1"
   local raw datestr ts
@@ -171,4 +178,105 @@ extract_ts_from_filename() {
 
   ts=$(date -d "$datestr" +%s 2>/dev/null || echo 0)
   echo "$ts"
+}
+
+############################################
+# Dry Run Helper
+# Usage:
+############################################
+
+is_dry_run() {
+  [[ "${RESTORE_DRY_RUN:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]
+}
+
+############################################
+# Resolve Date from backup
+# Usage: retry
+############################################
+
+resolve_local_backup_from_date() {
+  local search_dir="$1"
+
+  local want_datetime="${TARGET_ARCHIVE_DATETIME:-}"
+  local want_date="${TARGET_ARCHIVE_DATE_ONLY:-}"
+
+  local files=()
+
+  shopt -s nullglob
+
+  for path in "${search_dir}"/*.{dmp,dir.tar.gz}; do
+    fname="$(basename "$path")"
+
+    # Strip extension
+    base="${fname%.dmp}"
+    base="${base%.dir.tar.gz}"
+
+    # Expect ...DB.DD-Month-YYYY-HH-MM
+    datetime_part="${base##*.}"
+
+    ######################################
+    # Exact datetime match
+    ######################################
+    if [[ -n "$want_datetime" ]]; then
+      want_fmt="$(date -d \
+        "${want_datetime:0:10} ${want_datetime:11:2}:${want_datetime:14:2}" \
+        "+%d-%B-%Y-%H-%M" 2>/dev/null || true)"
+
+      [[ "$datetime_part" == "$want_fmt" ]] && {
+        echo "$path"
+        return 0
+      }
+      continue
+    fi
+
+    ######################################
+    # Date-only match
+    ######################################
+    if [[ -n "$want_date" ]]; then
+      IFS='-' read -r day month year hour min <<< "$datetime_part"
+      file_date="$(date -d "${day} ${month} ${year}" "+%Y-%m-%d" 2>/dev/null || true)"
+
+      [[ "$file_date" == "$want_date" ]] && files+=("$path")
+    fi
+  done
+
+  ######################################
+  # No matches
+  ######################################
+  (( ${#files[@]} == 0 )) && return 1
+
+  ######################################
+  # Single match
+  ######################################
+  (( ${#files[@]} == 1 )) && {
+    echo "${files[0]}"
+    return 0
+  }
+
+  ######################################
+  # Multiple matches → pick latest
+  ######################################
+  local latest=""
+  local latest_ts=0
+
+  for path in "${files[@]}"; do
+    fname="$(basename "$path")"
+    base="${fname%.dmp.gz}"
+    base="${base%.dir.tar.gz}"
+    datetime_part="${base##*.}"
+
+    IFS='-' read -r day month year hour min <<< "$datetime_part"
+    ts="$(date -d "${day} ${month} ${year} ${hour}:${min}" "+%s" 2>/dev/null || echo 0)"
+
+    (( ts > latest_ts )) && {
+      latest_ts="$ts"
+      latest="$path"
+    }
+  done
+
+
+  [[ -n "$latest" ]] && {
+    printf '%s\n' "$latest"
+    return 0
+  }
 }

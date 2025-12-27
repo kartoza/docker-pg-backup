@@ -22,7 +22,7 @@ run_restore() {
       s3_restore "$@" "$@"
       ;;
     FILE|file)
-      file_restore "$@"
+      file_restore "$@" "$@"
       ;;
     *)
       restore_log "ERROR: Unknown STORAGE_BACKEND=${STORAGE_BACKEND}"
