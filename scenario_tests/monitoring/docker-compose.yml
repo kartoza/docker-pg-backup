@@ -1,0 +1,51 @@
+
+volumes:
+  pg-backup-data-dir:
+  pg-data-dir:
+
+services:
+
+  pg_backup:
+    image: kartoza/postgis:18-3.6
+    restart: 'always'
+    volumes:
+      - ../utils/setup-db.sql:/docker-entrypoint-initdb.d/setup-db.sql
+      - ./backup_monitoring.sh:/settings/backup_monitoring.sh
+    environment:
+      - POSTGRES_DB=gis
+      - POSTGRES_USER=docker
+      - POSTGRES_PASS=docker
+      - ACTIVATE_CRON=FALSE
+    healthcheck:
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      test: "PGPASSWORD=docker pg_isready -h 127.0.0.1 -U docker -d gis"
+
+  pg_restore:
+    image: kartoza/pg-backup:${TAG:-manual-build}
+    restart: 'always'
+    volumes:
+      - pg-backup-data-dir:/backups
+      - ./backup_monitoring.sh:/settings/backup_monitoring.sh
+      - ./tests:/tests
+      - ../utils:/lib/utils
+    environment:
+      - DUMPPREFIX=PG_gis
+      - POSTGRES_HOST=pg_backup
+      - POSTGRES_USER=docker
+      - POSTGRES_PASS=docker
+      - POSTGRES_PORT=5432
+      - TARGET_DB=data
+      - TARGET_ARCHIVE=/backups/latest.gis.dmp
+      - WITH_POSTGIS=1
+      - ARCHIVE_FILENAME=latest
+      - CONSOLE_LOGGING=TRUE
+    depends_on:
+      pg_backup:
+        condition: service_healthy
+    healthcheck:
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      test: "PGPASSWORD=docker pg_isready -h 127.0.0.1 -U docker -d gis"

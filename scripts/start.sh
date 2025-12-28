@@ -109,6 +109,8 @@ if [ -z "${CONSOLIDATE_AFTER}" ]; then
 fi
 
 
+
+
 if [ -z "${PG_CONN_PARAMETERS}" ]; then
   PG_CONN_PARAMETERS="-h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"
 fi
@@ -203,8 +205,8 @@ EOF
 
 
 function cron_config() {
-  if [[ -f "${EXTRA_CONFIG_DIR}/backups-cron" ]]; then
-    envsubst < "${EXTRA_CONFIG_DIR}/backups-cron" > /backup-scripts/backups-cron
+  if [[ -f "${EXTRA_CONF_DIR}/backups-cron" ]]; then
+    envsubst < "${EXTRA_CONF_DIR}/backups-cron" > /backup-scripts/backups-cron
   else
     if [[ -z "${CRON_SCHEDULE}" ]]; then
       export CRON_SCHEDULE='0 23 * * *'
@@ -228,13 +230,13 @@ function directory_checker() {
 function non_root_permission() {
   USER="$1"
   GROUP="$2"
-  services=("${DEFAULT_EXTRA_CONF_DIR}" "/build_data" "/root/" "/backups" "/etc" "/var/log" "/var/run/" "/usr/lib" "/usr/bin/")
+  services=("${EXTRA_CONF_DIR}" "/build_data" "/root/" "/backups" "/etc" "/var/log" "/var/run/" "/usr/lib" "/usr/bin/")
   for paths in "${services[@]}"; do
     directory_checker "${paths}"
   done
 }
 
-mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
+mkdir -p ${EXTRA_CONF_DIR}
 
 configure_env_variables() {
   # Vars that should be quoted (strings, secrets, paths)

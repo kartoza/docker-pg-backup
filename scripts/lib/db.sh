@@ -221,6 +221,7 @@ backup_single_database() {
     MYDATE="$(date +%d-%B-%Y-%H-%M)"
   fi
 
+
   notify_monitoring "${status}" || true
   [[ "${status}" == "success" ]]
 }

@@ -25,8 +25,8 @@ EOF
 s3_init() {
   s3_log "Initializing S3 backend"
 
-  if [[ -f "${EXTRA_CONFIG_DIR:-}/s3cfg" ]]; then
-    cp "${EXTRA_CONFIG_DIR}/s3cfg" /root/.s3cfg
+  if [[ -f "${EXTRA_CONF_DIR:-}/s3cfg" ]]; then
+    cp "${EXTRA_CONF_DIR}/s3cfg" /root/.s3cfg
   else
     init_s3
   fi

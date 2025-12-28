@@ -15,8 +15,8 @@ restore_s3log() {
 s3_restore_init() {
   restore_s3log "Initializing S3 restore configuration"
 
-  if [[ -f "${EXTRA_CONFIG_DIR:-}/s3cfg" ]]; then
-    cp -f "${EXTRA_CONFIG_DIR}/s3cfg" /root/.s3cfg
+  if [[ -f "${EXTRA_CONF_DIR:-}/s3cfg" ]]; then
+    cp -f "${EXTRA_CONF_DIR}/s3cfg" /root/.s3cfg
   else
     init_s3
   fi
