@@ -78,6 +78,7 @@ jobs:
           - s3_restore
           - ownership
           - retentions
+          - monitoring
     steps:
       - uses: actions/checkout@v6
       - name: Download artifact
