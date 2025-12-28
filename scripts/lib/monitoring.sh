@@ -6,7 +6,7 @@ notify_monitoring() {
 
   # Command-based monitoring
   if [[ -n "${MONITORING_ENDPOINT_COMMAND:-}" ]]; then
-    eval "${MONITORING_ENDPOINT_COMMAND}"
+    eval "${MONITORING_ENDPOINT_COMMAND} '${status}'"
     return 0
   fi
 

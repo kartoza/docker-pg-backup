@@ -281,6 +281,9 @@ resolve_local_backup_from_date() {
   }
 }
 
+######################################
+# Wait function
+######################################
 wait_for_next_minute() {
   local now
   local seconds
