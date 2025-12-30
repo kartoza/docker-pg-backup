@@ -33,6 +33,8 @@ if [ -z "${MYBACKUPDIR:-}" ]; then
   export MYBACKUPDIR="${MYBASEDIR}/${YEAR}/${MONTH}"
 fi
 
+
+
 # Create backup directories
 mkdir -p "${MYBACKUPDIR}"
 mkdir -p "${MYBASEDIR}"
@@ -70,6 +72,7 @@ configure_sources
 if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
   exec >> /proc/1/fd/1 2>&1
 fi
+
 ############################################
 # Traps
 ############################################
@@ -83,6 +86,15 @@ init_logging
 
 
 log "Backup job started at $(date +%d-%B-%Y-%H-%M)" true
+
+if [ -z "${DBLIST:-}" ]; then
+
+  until PGPASSWORD=${POSTGRES_PASS} pg_isready ${PG_CONN_PARAMETERS}; do
+    sleep 1
+  done
+  export DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
+  log "Database list is::  ${DBLIST}"
+fi
 
 
 check_db_ready

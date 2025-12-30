@@ -109,20 +109,11 @@ if [ -z "${CONSOLIDATE_AFTER}" ]; then
 fi
 
 
-
-
 if [ -z "${PG_CONN_PARAMETERS}" ]; then
   PG_CONN_PARAMETERS="-h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"
 fi
 
 # How old can files and dirs be before getting trashed? In minutes
-if [ -z "${DBLIST}" ]; then
-
-  until PGPASSWORD=${POSTGRES_PASS} pg_isready ${PG_CONN_PARAMETERS}; do
-    sleep 1
-  done
-  DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
-fi
 
 if [ -z "${RUN_ONCE}" ]; then
   RUN_ONCE=FALSE
@@ -139,7 +130,6 @@ fi
 if [ -z "${DB_TABLES}" ]; then
   DB_TABLES=FALSE
 fi
-
 
 
 if [ -z "${CLEANUP_DRY_RUN}" ];then
@@ -187,6 +177,12 @@ fi
 if [ -z "${MONITORING_ENDPOINT_COMMAND}" ];then
    MONITORING_ENDPOINT_COMMAND=
 fi
+
+if [ -z "${ENTRYPOINT_START}" ];then
+   ENTRYPOINT_START=backup
+fi
+
+
 
 file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
 if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
@@ -245,8 +241,8 @@ configure_env_variables() {
     DEFAULT_REGION BUCKET HOST_BASE HOST_BUCKET SSL_SECURE
     DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_PASS POSTGRES_HOST
     DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION_PASS_PHRASE DB_DUMP_ENCRYPTION
-    PG_CONN_PARAMETERS DBLIST DB_TABLES  CLEANUP_DRY_RUN
-    CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND
+    PG_CONN_PARAMETERS DB_TABLES  CLEANUP_DRY_RUN
+    CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND ENTRYPOINT_START
   )
 
   # Vars that should be unquoted (numeric values)
@@ -309,7 +305,7 @@ setup_cron_env() {
   fi
 }
 
-run_entrypoint_task() {
+run_backup() {
   non_root_permission "${user}" "${group}"
 
   if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
@@ -328,9 +324,41 @@ run_entrypoint_task() {
   fi
 }
 
+
+run_restore() {
+  echo -e "\e[32m ------------------------------- \033[0m"
+  echo -e "\e[32m [Entrypoint] Run restore logic. \033[0m"
+  exec /backup-scripts/restore.sh
+}
+
+run_shell() {
+  echo -e "\e[32m ------------------------------- \033[0m"
+  echo -e "\e[32m [Entrypoint] Run shell.          \033[0m"
+  exec /bin/bash
+}
+
+
 # Main Entrypoint
 cron_config
 configure_env_variables
 user_permissions
 setup_cron_env
-run_entrypoint_task
+
+
+case "${ENTRYPOINT_START,,}" in
+  backup)
+    run_backup
+    ;;
+  restore)
+    run_restore
+    ;;
+  shell)
+    run_shell
+    ;;
+  *)
+    echo -e "\e[32m ------------------------------------------------------------ \033[0m"
+    echo -e "\e[32m [Entrypoint] Invalid ENTRYPOINT_START='${ENTRYPOINT_START}'. \033[0m"
+    echo -e "\e[32m [Entrypoint] Valid values: backup | restore | shell. \033[0m"
+    exit 1
+    ;;
+esac

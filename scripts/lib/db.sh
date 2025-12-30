@@ -82,7 +82,7 @@ backup_globals() {
 ############################################
 backup_databases() {
   local post_hook="${1:-}"
-
+  DB_COUNT=$(wc -w <<< "${DBLIST}")
   for DB in ${DBLIST}; do
     backup_single_database "${DB}" "${post_hook}"
 
@@ -212,7 +212,7 @@ backup_single_database() {
     local end_minute
     end_minute="$(date +%Y-%m-%d-%H-%M)"
 
-    if [[ "${start_minute}" == "${end_minute}" ]]; then
+    if [[ "${DB_COUNT}" -gt 1 && "${start_minute}" == "${end_minute}" ]]; then
       db_log "Dump finished within same minute, waiting for minute rollover to avoid timestamp collision" true
       wait_for_next_minute
     fi

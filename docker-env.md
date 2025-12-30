@@ -44,6 +44,11 @@ i.e. """curl -D - -X POST -G 'https://appsignal-endpoint.net/check_ins/heartbeat
 database dump. This will be used in restore procedure. Defaults to False.
 * `CLEANUP_DRY_RUN` Boolean value to indicate whether you want to see which files
 are to be deleted with the S3 cleanup job. This doesn't actually delete the files.
+* `ENTRYPOINT_START` Known values are `backup | restore | shell`. Allows a user to pass the appropriate
+values and run either backup or restore directly i.e. 
+```bash
+docker run -it -e ENTRYPOINT_START=shell kartoza/pg-backup:${TAG:-manual-build}
+```
 
 **Note** To avoid interpolation issues with the env variable `${CRON_SCHEDULE}` you will
 need to provide the variable as a quoted string i.e ${CRON_SCHEDULE}='*/1 * * * *'
