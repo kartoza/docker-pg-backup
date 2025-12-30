@@ -57,15 +57,8 @@ trap 'on_terminate' SIGTERM SIGINT
 init_logging
 
 log "Restore job started"
-
-if [ -z "${DBLIST:-}" ]; then
-
-  until PGPASSWORD=${POSTGRES_PASS} pg_isready ${PG_CONN_PARAMETERS}; do
-    sleep 1
-  done
-  export DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
-  log "Database list is::  ${DBLIST}"
-fi
+# Check if DB is ready Sanity check to see if the cluster is running
+check_db_ready
 
 if [[ -n "${TARGET_DB}" && -n "${TARGET_ARCHIVE:-}" ]]; then
   run_restore "${TARGET_ARCHIVE:-}" "${TARGET_DB}"

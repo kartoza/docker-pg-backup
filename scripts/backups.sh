@@ -87,6 +87,9 @@ init_logging
 
 log "Backup job started at $(date +%d-%B-%Y-%H-%M)" true
 
+# Check if DB is ready before getting the lists
+check_db_ready
+
 if [ -z "${DBLIST:-}" ]; then
 
   until PGPASSWORD=${POSTGRES_PASS} pg_isready ${PG_CONN_PARAMETERS}; do
@@ -97,7 +100,7 @@ if [ -z "${DBLIST:-}" ]; then
 fi
 
 
-check_db_ready
+
 
 ############################################
 # Backup execution
