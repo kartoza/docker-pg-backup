@@ -1,7 +1,11 @@
 #!/bin/bash
 DEFAULT_EXTRA_CONF_DIR="/settings"
 
-function file_env {
+
+########################################
+# Helpers
+########################################
+file_env() {
 	local var="$1"
 	local fileVar="${var}_FILE"
 	local def="${2:-}"
@@ -19,176 +23,111 @@ function file_env {
 	unset "$fileVar"
 }
 
-if [ -z "${RUN_AS_ROOT}" ]; then
-  RUN_AS_ROOT=true
-fi
+env_default() {
+  local var="$1"
+  local default="$2"
 
-if [ -z "${EXTRA_CONF_DIR}" ]; then
-  EXTRA_CONF_DIR=${DEFAULT_EXTRA_CONF_DIR}
-fi
+  if [[ -z "${!var:-}" ]]; then
+    export "${var}=${default}"
+  fi
+}
 
-if [ -z "${STORAGE_BACKEND}" ]; then
-	STORAGE_BACKEND="FILE"
-fi
+########################################
+# Core defaults
+########################################
+env_default RUN_AS_ROOT true
+env_default EXTRA_CONF_DIR "${DEFAULT_EXTRA_CONF_DIR}"
+env_default STORAGE_BACKEND FILE
 
-file_env 'ACCESS_KEY_ID'
+########################################
+# Secrets / file-backed vars
+########################################
+file_env ACCESS_KEY_ID
+env_default ACCESS_KEY_ID ""
 
-if [ -z "${ACCESS_KEY_ID}" ]; then
-	ACCESS_KEY_ID=
-fi
+file_env SECRET_ACCESS_KEY
+env_default SECRET_ACCESS_KEY ""
 
-file_env 'SECRET_ACCESS_KEY'
-if [ -z "${SECRET_ACCESS_KEY}" ]; then
-	SECRET_ACCESS_KEY=
-fi
+file_env DEFAULT_REGION
+env_default DEFAULT_REGION us-west-2
 
-file_env 'DEFAULT_REGION'
-if [ -z "${DEFAULT_REGION}" ]; then
-	DEFAULT_REGION=us-west-2
-fi
+file_env BUCKET
+env_default BUCKET backups
 
-file_env 'BUCKET'
-if [ -z "${BUCKET}" ]; then
-	BUCKET=backups
-fi
+########################################
+# Connection / storage
+########################################
+file_env HOST_BASE
+env_default HOST_BASE ""
 
-file_env 'HOST_BASE'
-if [ -z "${HOST_BASE}" ]; then
-	HOST_BASE=
-fi
+env_default HOST_BUCKET ""
+env_default SSL_SECURE True
 
-if [ -z "${HOST_BUCKET}" ]; then
-	HOST_BUCKET=
-fi
+env_default DUMP_ARGS "-Fc"
+env_default RESTORE_ARGS "-j 4"
 
-if [ -z "${SSL_SECURE}" ]; then
-	SSL_SECURE=True
-fi
+########################################
+# Postgres credentials
+########################################
+file_env POSTGRES_USER
+env_default POSTGRES_USER docker
 
-if [ -z "${DUMP_ARGS}" ]; then
-	 DUMP_ARGS='-Fc'
-fi
+file_env POSTGRES_PASS
+env_default POSTGRES_PASS docker
 
-if [ -z "${RESTORE_ARGS}" ]; then
-	RESTORE_ARGS='-j 4'
-fi
+env_default POSTGRES_PORT 5432
+env_default POSTGRES_HOST db
 
-file_env 'POSTGRES_USER'
-if [ -z "${POSTGRES_USER}" ]; then
-  POSTGRES_USER=docker
-fi
+########################################
+# Naming / retention
+########################################
+env_default DUMPPREFIX PG
+env_default ARCHIVE_FILENAME ""
 
-file_env 'POSTGRES_PASS'
-if [ -z "${POSTGRES_PASS}" ]; then
-  POSTGRES_PASS=docker
-fi
+env_default REMOVE_BEFORE ""
+env_default CONSOLIDATE_AFTER ""
 
-if [ -z "${POSTGRES_PORT}" ]; then
-  POSTGRES_PORT=5432
-fi
+########################################
+# Derived values (must come AFTER deps)
+########################################
+env_default PG_CONN_PARAMETERS "-h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"
 
-if [ -z "${POSTGRES_HOST}" ]; then
-  POSTGRES_HOST=db
-fi
+########################################
+# Runtime flags
+########################################
+env_default RUN_ONCE FALSE
+env_default DB_DUMP_ENCRYPTION FALSE
+env_default DB_TABLES FALSE
+env_default CLEANUP_DRY_RUN false
+env_default CHECKSUM_VALIDATION false
+env_default S3_RETAIN_LOCAL_DUMPS false
+env_default CONSOLE_LOGGING true
 
-if [ -z "${DUMPPREFIX}" ]; then
-  DUMPPREFIX=PG
-fi
+########################################
+# Time calculations
+########################################
+env_default TIME_MINUTES "$((REMOVE_BEFORE * 24 * 60))"
+env_default MIN_SAVED_FILE 0
+env_default CONSOLIDATE_AFTER 0
+env_default CONSOLIDATE_AFTER_MINUTES "$((CONSOLIDATE_AFTER * 24 * 60))"
 
-if [ -z "${ARCHIVE_FILENAME}" ]; then
-  ARCHIVE_FILENAME=
-fi
+########################################
+# Restore / monitoring
+########################################
+env_default TARGET_ARCHIVE_DATETIME ""
+env_default TARGET_ARCHIVE_DATE_ONLY ""
+env_default MONITORING_ENDPOINT_COMMAND ""
+env_default ENTRYPOINT_START backup
 
-# How old can files and dirs be before getting trashed? In minutes
-if [ -z "${REMOVE_BEFORE}" ]; then
-  REMOVE_BEFORE=
-fi
-
-if [ -z "${CONSOLIDATE_AFTER}" ]; then
-  CONSOLIDATE_AFTER=
-fi
-
-
-if [ -z "${PG_CONN_PARAMETERS}" ]; then
-  PG_CONN_PARAMETERS="-h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"
-fi
-
-# How old can files and dirs be before getting trashed? In minutes
-
-if [ -z "${RUN_ONCE}" ]; then
-  RUN_ONCE=FALSE
-fi
-
-if [ -z "${DB_DUMP_ENCRYPTION}" ]; then
-  DB_DUMP_ENCRYPTION=FALSE
-fi
-
-if [ -z "${CONSOLE_LOGGING}" ]; then
-  CONSOLE_LOGGING=True
-fi
-
-if [ -z "${DB_TABLES}" ]; then
-  DB_TABLES=FALSE
-fi
-
-
-if [ -z "${CLEANUP_DRY_RUN}" ];then
-  CLEANUP_DRY_RUN=false
-fi
-
-
-if [ -z "${TIME_MINUTES}" ]; then
-  TIME_MINUTES=$((REMOVE_BEFORE * 24 * 60))
-fi
-
-if [ -z "${MIN_SAVED_FILE}" ]; then
-   MIN_SAVED_FILE=0
-fi
-
-if [ -z "${CONSOLIDATE_AFTER}" ]; then
-   CONSOLIDATE_AFTER=0
-fi
-
-if [ -z "${CONSOLIDATE_AFTER_MINUTES}" ]; then
-   CONSOLIDATE_AFTER_MINUTES=$((CONSOLIDATE_AFTER * 24 * 60))
-fi
-
-if [ -z "${CHECKSUM_VALIDATION}" ];then
-  CHECKSUM_VALIDATION=false
-fi
-
-# If True, keeps all local dumps after upload
-if [ -z "${S3_RETAIN_LOCAL_DUMPS}" ];then
-  S3_RETAIN_LOCAL_DUMPS=false
-fi
-
-if [ -z "${CONSOLE_LOGGING}" ];then
-  CONSOLE_LOGGING=false
-fi
-
-if [ -z "${TARGET_ARCHIVE_DATETIME}" ];then
-  TARGET_ARCHIVE_DATETIME=
-fi
-
-if [ -z "${TARGET_ARCHIVE_DATE_ONLY}" ];then
-  TARGET_ARCHIVE_DATE_ONLY=
-fi
-
-if [ -z "${MONITORING_ENDPOINT_COMMAND}" ];then
-   MONITORING_ENDPOINT_COMMAND=
-fi
-
-if [ -z "${ENTRYPOINT_START}" ];then
-   ENTRYPOINT_START=backup
-fi
-
-
-
-file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
-if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
+########################################
+# Encryption passphrase (special case)
+########################################
+file_env DB_DUMP_ENCRYPTION_PASS_PHRASE
+if [[ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]]; then
   STRING_LENGTH=30
-  random_pass_string=$(cat /dev/urandom | tr -dc '[:alnum:]' | head -c "${STRING_LENGTH}")
-  DB_DUMP_ENCRYPTION_PASS_PHRASE=${random_pass_string}
+  DB_DUMP_ENCRYPTION_PASS_PHRASE="$(
+    tr -dc '[:alnum:]' < /dev/urandom | head -c "${STRING_LENGTH}"
+  )"
   export DB_DUMP_ENCRYPTION_PASS_PHRASE
 fi
 
