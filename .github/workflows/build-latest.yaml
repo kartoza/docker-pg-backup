@@ -56,7 +56,7 @@ jobs:
           cache-to: type=gha,scope=test
           target: postgis-backup-test
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: kartoza-pg-backup
           path: /tmp/pg-backup.tar
