@@ -9,18 +9,6 @@ restore_s3log() {
   log "[DB S3 Restore ] $*"
 }
 
-############################################
-# S3 config
-############################################
-s3_restore_init() {
-  restore_s3log "Initializing S3 restore configuration"
-
-  if [[ -f "${EXTRA_CONF_DIR:-}/s3cfg" ]]; then
-    cp -f "${EXTRA_CONF_DIR}/s3cfg" /root/.s3cfg
-  else
-    init_s3
-  fi
-}
 
 ############################################
 # Resolve backup from DATE or DATETIME

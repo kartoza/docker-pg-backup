@@ -23,15 +23,19 @@ EOF
 }
 
 s3_init() {
+  local init_bucket="${1:-true}"
   s3_log "Initializing S3 backend"
 
   if [[ -f "${EXTRA_CONF_DIR:-}/s3cfg" ]]; then
     cp "${EXTRA_CONF_DIR}/s3cfg" /root/.s3cfg
   else
+    validate_s3_access_key
     init_s3
+    unset_s3_access_key
   fi
-
-  s3cmd ls "s3://${BUCKET}" >/dev/null 2>&1 || s3cmd mb "s3://${BUCKET}"
+  if [[ "${init_bucket}" =~ ^([Tt][Rr][Uu][Ee]|1)$ ]]; then
+    s3cmd ls "s3://${BUCKET}" >/dev/null 2>&1 || s3cmd mb "s3://${BUCKET}"
+  fi
 }
 
 

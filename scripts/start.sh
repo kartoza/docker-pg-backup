@@ -45,9 +45,6 @@ env_default STORAGE_BACKEND FILE
 file_env ACCESS_KEY_ID
 env_default ACCESS_KEY_ID ""
 
-file_env SECRET_ACCESS_KEY
-env_default SECRET_ACCESS_KEY ""
-
 file_env DEFAULT_REGION
 env_default DEFAULT_REGION us-west-2
 
@@ -72,8 +69,6 @@ env_default RESTORE_ARGS "-j 4"
 file_env POSTGRES_USER
 env_default POSTGRES_USER docker
 
-file_env POSTGRES_PASS
-env_default POSTGRES_PASS docker
 
 env_default POSTGRES_PORT 5432
 env_default POSTGRES_HOST db
@@ -120,18 +115,10 @@ env_default TARGET_ARCHIVE_DATE_ONLY ""
 env_default MONITORING_ENDPOINT_COMMAND ""
 env_default ENTRYPOINT_START backup
 
-########################################
-# Encryption passphrase (special case)
-########################################
-file_env DB_DUMP_ENCRYPTION_PASS_PHRASE
-if [[ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]]; then
-  STRING_LENGTH=30
-  DB_DUMP_ENCRYPTION_PASS_PHRASE="$(
-    tr -dc '[:alnum:]' < /dev/urandom | head -c "${STRING_LENGTH}"
-  )"
-  export DB_DUMP_ENCRYPTION_PASS_PHRASE
-fi
 
+########################################
+# Cron setting
+########################################
 build_cron() {
   cat > /backup-scripts/backups-cron <<EOF
 ${CRON_SCHEDULE} /bin/bash /backup-scripts/backups.sh
@@ -152,6 +139,9 @@ function cron_config() {
   fi
 }
 
+########################################
+# File Permissions
+########################################
 function directory_checker() {
   DATA_PATH=$1
   if [ -d "$DATA_PATH" ];then
@@ -177,10 +167,10 @@ mkdir -p ${EXTRA_CONF_DIR}
 configure_env_variables() {
   # Vars that should be quoted (strings, secrets, paths)
   local quoted_vars=(
-    PATH EXTRA_CONF_DIR STORAGE_BACKEND ACCESS_KEY_ID SECRET_ACCESS_KEY
+    PATH EXTRA_CONF_DIR STORAGE_BACKEND ACCESS_KEY_ID
     DEFAULT_REGION BUCKET HOST_BASE HOST_BUCKET SSL_SECURE
-    DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_PASS POSTGRES_HOST
-    DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION_PASS_PHRASE DB_DUMP_ENCRYPTION
+    DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_HOST
+    DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION
     PG_CONN_PARAMETERS DB_TABLES  CLEANUP_DRY_RUN
     CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND ENTRYPOINT_START JSON_LOGGING
   )

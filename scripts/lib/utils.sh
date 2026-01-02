@@ -334,3 +334,78 @@ sanitize_db_names(){
     ;;
 esac
 }
+
+file_env() {
+	local var="$1"
+	local fileVar="${var}_FILE"
+	local def="${2:-}"
+	if [ "${!var:-}" ] && [ "${!fileVar:-}" ]; then
+		echo >&2 "error: both $var and $fileVar are set (but are exclusive)"
+		exit 1
+	fi
+	local val="$def"
+	if [ "${!var:-}" ]; then
+		val="${!var}"
+	elif [ "${!fileVar:-}" ]; then
+		val="$(< "${!fileVar}")"
+	fi
+	export "$var"="$val"
+	unset "$fileVar"
+}
+
+
+############################################
+# Postgres password handling
+############################################
+validate_postgres_pass() {
+  file_env POSTGRES_PASS
+
+  if [[ -z "${POSTGRES_PASS:-}" ]]; then
+    utils_log "ERROR: Postgres superuser pass is required"
+    return 1
+  fi
+
+  export PGPASSWORD="${POSTGRES_PASS}"
+}
+
+unset_postgres_pass() {
+  unset PGPASSWORD
+}
+
+############################################
+# Dump encryption password handling
+############################################
+validate_dump_encryption_pass() {
+  # Only relevant when encryption is enabled
+  if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee]|1)$ ]]; then
+    file_env DB_DUMP_ENCRYPTION_PASS_PHRASE
+
+    if [[ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE:-}" ]]; then
+      utils_log "PASSWORD: Generating random DB_DUMP_ENCRYPTION_PASS_PHRASE"
+      local STRING_LENGTH=30
+      DB_DUMP_ENCRYPTION_PASS_PHRASE="$(
+        tr -dc '[:alnum:]' < /dev/urandom | head -c "${STRING_LENGTH}"
+      )"
+      export DB_DUMP_ENCRYPTION_PASS_PHRASE
+    fi
+  fi
+}
+
+unset_dump_encryption_pass() {
+  unset DB_DUMP_ENCRYPTION_PASS_PHRASE
+}
+
+validate_s3_access_key() {
+  file_env SECRET_ACCESS_KEY
+
+  if [[ -z "${SECRET_ACCESS_KEY:-}" ]]; then
+    utils_log "ERROR: S3 backend set, but SECRET_ACCESS_KEY is not provided"
+    return 1
+  fi
+
+  export SECRET_ACCESS_KEY
+}
+
+unset_s3_access_key() {
+  unset SECRET_ACCESS_KEY
+}

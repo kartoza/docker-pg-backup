@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 require_encryption_key() {
-  # Only required when encryption is enabled
   if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee]|1)$ ]]; then
+    validate_dump_encryption_pass
+
     if [[ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE:-}" ]]; then
-      log "ERROR: DB_DUMP_ENCRYPTION is enabled but DB_DUMP_ENCRYPTION_PASS_PHRASE is not set"
+      log "ERROR: DB_DUMP_ENCRYPTION is enabled but encryption passphrase is missing"
       notify_monitoring "failure"
       exit 1
     fi
@@ -12,7 +13,6 @@ require_encryption_key() {
 }
 
 encrypt_stream() {
-  # stdin → stdout
   require_encryption_key
 
   openssl enc -aes-256-cbc \
@@ -21,7 +21,6 @@ encrypt_stream() {
 }
 
 decrypt_stream() {
-  # stdin → stdout
   require_encryption_key
 
   openssl enc -d -aes-256-cbc \
@@ -33,10 +32,12 @@ encrypt_dump() {
   local db="$1"
   local outfile="$2"
 
+  require_encryption_key
+
   local passfile
   passfile="$(mktemp)"
   chmod 600 "${passfile}"
-  echo "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" > "${passfile}"
+  printf '%s' "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" > "${passfile}"
 
   pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${db}" \
     | openssl enc -aes-256-cbc \
