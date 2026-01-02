@@ -21,7 +21,7 @@ ENV \
 
 
 ADD scripts /backup-scripts
-RUN echo ${POSTGRES_MAJOR_VERSION} > /tmp/pg_version.txt && chmod 0755 /backup-scripts/*.sh
+RUN echo $POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE} > /tmp/pg_version.txt && chmod 0755 /backup-scripts/*.sh
 RUN sed -i 's/PostGIS/PgBackup/' ~/.bashrc
 
 WORKDIR /backup-scripts

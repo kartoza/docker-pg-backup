@@ -220,6 +220,7 @@ backup_single_database() {
     # Recompute MYDATE for the next DB
     MYDATE="$(date +%d-%B-%Y-%H-%M)"
   fi
+  unset PGPASSWORD
 
 
   notify_monitoring "${status}" || true
@@ -282,6 +283,7 @@ restore_recreate_db() {
     db_log "Enabling PostGIS"
     psql ${PG_CONN_PARAMETERS} -d "${db}" -c 'CREATE EXTENSION IF NOT EXISTS postgis;'
   fi
+  unset PGPASSWORD
 }
 
 ############################################
@@ -314,5 +316,6 @@ restore_dump() {
       pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
     fi
   fi
+  unset PGPASSWORD
 }
 

@@ -102,6 +102,7 @@ env_default CLEANUP_DRY_RUN false
 env_default CHECKSUM_VALIDATION false
 env_default S3_RETAIN_LOCAL_DUMPS false
 env_default CONSOLE_LOGGING true
+env_default JSON_LOGGING false
 
 ########################################
 # Time calculations
@@ -181,7 +182,7 @@ configure_env_variables() {
     DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_PASS POSTGRES_HOST
     DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION_PASS_PHRASE DB_DUMP_ENCRYPTION
     PG_CONN_PARAMETERS DB_TABLES  CLEANUP_DRY_RUN
-    CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND ENTRYPOINT_START
+    CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND ENTRYPOINT_START JSON_LOGGING
   )
 
   # Vars that should be unquoted (numeric values)
@@ -297,7 +298,7 @@ case "${ENTRYPOINT_START,,}" in
   *)
     echo -e "\e[32m ------------------------------------------------------------ \033[0m"
     echo -e "\e[32m [Entrypoint] Invalid ENTRYPOINT_START='${ENTRYPOINT_START}'. \033[0m"
-    echo -e "\e[32m [Entrypoint] Valid values: backup | restore | shell. \033[0m"
-    exit 1
+    echo -e "\e[32m [Entrypoint] Valid values: backup | restore | shell., defaulting to backup \033[0m"
+    ENTRYPOINT_START=backup
     ;;
 esac

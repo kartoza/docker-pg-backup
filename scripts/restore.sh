@@ -60,13 +60,18 @@ log "Restore job started"
 # Check if DB is ready Sanity check to see if the cluster is running
 check_db_ready
 
+
+
 if [[ -n "${TARGET_DB}" && -n "${TARGET_ARCHIVE:-}" ]]; then
+  sanitize_db_names
   run_restore "${TARGET_ARCHIVE:-}" "${TARGET_DB}"
 
 elif [[ -n "${TARGET_DB}" && -n "${TARGET_ARCHIVE_DATE_ONLY:-}" ]]; then
+  sanitize_db_names
   run_restore "${TARGET_ARCHIVE_DATE_ONLY:-}" "${TARGET_DB}"
 
 elif [[ -n "${TARGET_DB}" && -n "${TARGET_ARCHIVE_DATETIME:-}" ]]; then
+  sanitize_db_names
   run_restore "${TARGET_ARCHIVE_DATETIME:-}" "${TARGET_DB}"
 
 else

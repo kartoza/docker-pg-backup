@@ -26,13 +26,21 @@ log() {
     colorize="${COLORIZE:-false}"
   fi
 
+ local ts
+  ts="$(date --iso-8601=seconds)"
   msg="[$(date --iso-8601=seconds)] $*"
 
   if [[ "${LOG_MODE}" == "stdout" ]]; then
-    if [[ "${colorize}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-      echo -e "\e[32m${msg}\033[0m"
+    if [[ "${JSON_LOGGING}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      printf '{"ts":"%s","msg":"%s"}\n' \
+        "$ts" \
+        "$(printf '%s' "$*" | sed 's/"/\\"/g')"
     else
-      echo "${msg}"
+      if [[ "${colorize}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+        echo -e "\e[32m${msg}\033[0m"
+      else
+        echo "${msg}"
+      fi
     fi
   else
     echo "${msg}" >> "${LOG_FILE}"

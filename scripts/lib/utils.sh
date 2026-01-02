@@ -293,3 +293,44 @@ wait_for_next_minute() {
 
   (( seconds > 0 )) && sleep "${seconds}"
 }
+
+setup_metadata() {
+  local backup_file="$1"
+  local checksum_field=""
+  local encryption_field=""
+
+  # Conditional checksum
+  if [[ "${CHECKSUM_VALIDATION,,}" == "true" ]] && [[ -f "${backup_file}.sha256" ]]; then
+    checksum_field=$(cat <<EOF
+  ,"checksum": "$(cat "${backup_file}.sha256")"
+EOF
+)
+  fi
+
+  # Conditional encryption metadata
+  if [[ "${DB_DUMP_ENCRYPTION,,}" == "true" ]]; then
+    encryption_field=$(cat <<EOF
+  ,"encrypted": true
+EOF
+)
+  fi
+
+  cat > "${backup_file}.meta.json" <<EOF
+{
+  "db": "${DB}",
+  "format": "${FORMAT}",
+  "timestamp": "$(date -Is)",
+  "pg_version": "$(pg_dump --version)",
+  "image": "kartoza/pg-backup:${IMAGE_TAG:-$(cat /tmp/pg_version.txt)}"${encryption_field}${checksum_field}
+}
+EOF
+}
+
+sanitize_db_names(){
+  case "${TARGET_DB:-}" in
+  postgres|template0|template1)
+    utils_log "ERROR: Refusing to restore into system database ${TARGET_DB}"
+    exit 1
+    ;;
+esac
+}
