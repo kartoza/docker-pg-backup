@@ -61,7 +61,6 @@ services:
       - HOST_BUCKET=backup
       - SSL_SECURE=False
       - CHECKSUM_VALIDATION=False
-      - JSON_LOGGING=True
     depends_on:
       db:
         condition: service_healthy
