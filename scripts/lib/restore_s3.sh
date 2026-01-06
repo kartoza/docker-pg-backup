@@ -106,7 +106,7 @@ s3_restore() {
   local input_date="$1"
   local target_db="$2"
 
-  [[ -z "$target_db" ]] && {
+  [[ -z "${target_db:-}" ]] && {
     restore_s3log "ERROR: TARGET_DB is required"
     return 1
   }
@@ -114,25 +114,19 @@ s3_restore() {
   restore_s3log "S3 restore requested: date='${input_date:-AUTO}' target_db=${target_db}"
 
   local backup_key=""
-  local checksum_key=""
   local workdir="/data/dump"
 
-  mkdir -p "$workdir"
+  create_non_existing_directory "${workdir}"
+
 
   ############################################
-  # 1. Explicit archive override
+  # 1. Resolve archive key (NO normalization)
   ############################################
   if [[ -n "${TARGET_ARCHIVE:-}" ]]; then
-    backup_key="$(normalize_archive "${TARGET_ARCHIVE}")"
-    [[ "$backup_key" != *.gz ]] && backup_key="${backup_key}.gz"
-
+    backup_key="$(basename "${TARGET_ARCHIVE}")"
     restore_s3log "Using TARGET_ARCHIVE override: ${backup_key}"
-
-  ############################################
-  # 2. Date-based resolution
-  ############################################
   else
-    [[ -z "$input_date" ]] && {
+    [[ -z "${input_date:-}" ]] && {
       restore_s3log "ERROR: Date required when TARGET_ARCHIVE not set"
       return 1
     }
@@ -140,50 +134,81 @@ s3_restore() {
     local date_part="${input_date:0:10}"
     local year month
 
-    year="$(date -d "$date_part" +%Y)"
-    month="$(date -d "$date_part" +%B)"
+    year="$(date -d "${date_part}" +%Y)"
+    month="$(date -d "${date_part}" +%B)"
 
     local s3_dir="${year}/${month}"
 
     restore_s3log "Resolving backup from s3://${BUCKET}/${s3_dir}"
 
-    backup_key="$(resolve_backup_from_date "$s3_dir")"
+    backup_key="$(resolve_backup_from_date "${s3_dir}")"
 
-    [[ -z "$backup_key" ]] && {
+    [[ -z "${backup_key}" ]] && {
       restore_s3log "ERROR: No backup found for ${input_date}"
       return 1
     }
   fi
 
-  checksum_key="${backup_key}.sha256"
-
   restore_s3log "Resolved archive: s3://${BUCKET}/${backup_key}"
 
   ############################################
-  # 3. Download archive (+ checksum)
+  # 2. Download metadata FIRST (exact key)
   ############################################
-  s3cmd get "s3://${BUCKET}/${backup_key}" "${workdir}/$(basename "$backup_key")"
-
-  if [[ "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-    restore_s3log "Downloading checksum"
-    s3cmd get "s3://${BUCKET}/${checksum_key}" "${workdir}/$(basename "$checksum_key")"
-    validate_checksum "${workdir}/$(basename "$checksum_key")" || return 1
-  fi
-
   ############################################
-  # 4. Restore
-  ############################################
-  local archive="${workdir}/$(basename "$backup_key")"
+# 2. Resolve REAL archive key via metadata
+############################################
+  local base_key="${backup_key}"
+  local meta_key=""
+  local archive_key=""
 
-  if [[ "$archive" == *.tar.gz ]]; then
-    tar -xzf "$archive" -C "$workdir"
-    restore_recreate_db "$target_db"
-    restore_dump "${archive%.tar.gz}" "$target_db"
+  restore_s3log "Resolving metadata for ${base_key}"
+
+  if s3cmd info "s3://${BUCKET}/${base_key}.meta.json" >/dev/null 2>&1; then
+    meta_key="${base_key}.meta.json"
+    archive_key="${base_key}"
+  elif s3cmd info "s3://${BUCKET}/${base_key}.gz.meta.json" >/dev/null 2>&1; then
+    meta_key="${base_key}.gz.meta.json"
+    archive_key="${base_key}.gz"
   else
-    gunzip -f "$archive"
-    restore_recreate_db "$target_db"
-    restore_dump "${archive%.gz}" "$target_db"
+    restore_s3log "ERROR: No metadata found for ${base_key} (.meta.json or .gz.meta.json)"
+    return 1
   fi
 
-  restore_s3log "Restore completed successfully for ${target_db}"
+  restore_s3log "Resolved archive key: ${archive_key}"
+  restore_s3log "Resolved metadata key: ${meta_key}"
+
+  local archive_path="${workdir}/$(basename "${archive_key}")"
+  local meta_path="${archive_path}.meta.json"
+
+  restore_s3log "Downloading metadata"
+  s3cmd get "s3://${BUCKET}/${meta_key}" "${meta_path}" || return 1
+
+  ############################################
+  # 3. Download archive
+  ############################################
+  restore_s3log "Downloading archive to destination ${archive_path}"
+  s3cmd get "s3://${BUCKET}/${archive_key}" "${archive_path}" || return 1
+
+  ############################################
+  # 4. Optional checksum (metadata-driven)
+  ############################################
+  local checksum
+  checksum="$(jq -r '.checksum // empty' "${meta_path}")"
+
+  if [[ -n "${checksum}" ]]; then
+    local checksum_key="${backup_key}.sha256"
+    local checksum_path="${archive_path}.sha256"
+
+    restore_s3log "Downloading checksum to destination ${checksum_path}"
+    s3cmd get "s3://${BUCKET}/${checksum_key}" "${checksum_path}" || return 1
+  fi
+
+  ############################################
+  # 5. Delegate to file_restore
+  ############################################
+  restore_s3log "Delegating restore to file_restore using ${target_db} and ${archive_path}"
+
+  TARGET_DB="${target_db}" \
+  TARGET_ARCHIVE="${archive_path}" \
+    file_restore
 }

@@ -55,12 +55,20 @@ s3_upload() {
   local gz_key="${path#${BUCKET}/}"
   local checksum_file="${gz_file}.sha256"
   local checksum_key="${gz_key}.sha256"
+  local metadata_file="${gz_file}.meta.json"
+  local metadata_key="${gz_key}.meta.json"
 
   s3_log "Uploading $(basename "${gz_file}") to s3://${BUCKET}/${gz_key}"
 
   # Upload gzip
   if ! retry 3 s3cmd put "${gz_file}" "s3://${BUCKET}/${gz_key}"; then
     s3_log "ERROR: Failed to upload ${gz_file}"
+    return 1
+  fi
+
+   # Upload metadata file
+  if ! retry 3 s3cmd put "${metadata_file}" "s3://${BUCKET}/${metadata_key}"; then
+    s3_log "ERROR: Failed to upload ${metadata_file}"
     return 1
   fi
 

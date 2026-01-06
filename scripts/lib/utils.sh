@@ -300,7 +300,7 @@ setup_metadata() {
   local encryption_field=""
 
   # Conditional checksum
-  if [[ "${CHECKSUM_VALIDATION,,}" == "true" ]] && [[ -f "${backup_file}.sha256" ]]; then
+  if [[ "${CHECKSUM_VALIDATION,,}" =~ ^([Tt][Rr][Uu][Ee])$ ]] && [[ -f "${backup_file}.sha256" ]]; then
     checksum_field=$(cat <<EOF
   ,"checksum": "$(cat "${backup_file}.sha256")"
 EOF
@@ -308,7 +308,7 @@ EOF
   fi
 
   # Conditional encryption metadata
-  if [[ "${DB_DUMP_ENCRYPTION,,}" == "true" ]]; then
+  if [[ "${DB_DUMP_ENCRYPTION,,}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
     encryption_field=$(cat <<EOF
   ,"encrypted": true
 EOF
@@ -317,11 +317,7 @@ EOF
 
   cat > "${backup_file}.meta.json" <<EOF
 {
-  "db": "${DB}",
-  "format": "${FORMAT}",
-  "timestamp": "$(date -Is)",
-  "pg_version": "$(pg_dump --version)",
-  "image": "kartoza/pg-backup:${IMAGE_TAG:-$(cat /tmp/pg_version.txt)}"${encryption_field}${checksum_field}
+  "postgres_major_version": $(cat /tmp/pg_version.txt)${encryption_field}${checksum_field}
 }
 EOF
 }
@@ -391,9 +387,16 @@ validate_dump_encryption_pass() {
   fi
 }
 
+############################################
+# Dump encryption password handling
+############################################
 unset_dump_encryption_pass() {
   unset DB_DUMP_ENCRYPTION_PASS_PHRASE
 }
+
+############################################
+# S3 Access key handling
+############################################
 
 validate_s3_access_key() {
   file_env SECRET_ACCESS_KEY
@@ -406,6 +409,85 @@ validate_s3_access_key() {
   export SECRET_ACCESS_KEY
 }
 
+############################################
+# Unset S3 access key
+############################################
 unset_s3_access_key() {
   unset SECRET_ACCESS_KEY
+}
+
+############################################
+# Get Target PostgreSQL version
+############################################
+get_target_pg_major() {
+  validate_postgres_pass
+  psql -d postgres ${PG_CONN_PARAMETERS} -Atc 'show server_version_num' \
+    | cut -c1-2
+  unset_postgres_pass
+}
+
+#############################################
+# Check Major PostgreSQL version for restore
+#############################################
+check_pg_major_compatibility() {
+  local backup_major="$1"
+  local target_major
+
+  target_major="$(get_target_pg_major)"
+
+  restore_log "Backup PG major=${backup_major}, Target PG major=${target_major}"
+
+  if [[ -z "${backup_major}" || -z "${target_major}" ]]; then
+    restore_log "ERROR: Unable to determine Postgres major versions"
+    return 1
+  fi
+
+  if (( backup_major > target_major )); then
+    restore_log "ERROR: Cannot restore PG${backup_major} backup into PG${target_major}"
+    return 1
+  fi
+}
+
+############################################
+# Load metadata  handling
+############################################
+
+load_restore_metadata() {
+  local archive="$1"
+  local meta="${archive}.meta.json"
+
+  if [[ ! -f "${meta}" ]]; then
+    restore_log "ERROR: Missing metadata for ${archive}"
+    restore_log "Encrypted or custom dumps require metadata"
+    return 1
+  fi
+
+  RESTORE_META_ENCRYPTED="$(jq -r '.encrypted // false' "${meta}")"
+  RESTORE_META_CHECKSUM="$(jq -r '.checksum // empty' "${meta}")"
+  RESTORE_META_PG_MAJOR="$(jq -r '.postgres_major_version // empty' "${meta}")"
+
+  if [[ -z "${RESTORE_META_PG_MAJOR}" ]]; then
+    restore_log "ERROR: Metadata missing postgres_major_version"
+    return 1
+  fi
+}
+
+############################################
+# Create Directory
+############################################
+
+create_non_existing_directory() {
+  local path="${1:-}"
+
+  if [[ -z "${path}" ]]; then
+    restore_log "ERROR: create_non_existing_directory called with empty path"
+    return 1
+  fi
+
+  if [[ ! -d "${path}" ]]; then
+    mkdir -p "${path}" || {
+      restore_log "ERROR: Failed to create directory ${path}"
+      return 1
+    }
+  fi
 }

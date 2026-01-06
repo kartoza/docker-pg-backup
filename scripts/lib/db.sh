@@ -155,6 +155,9 @@ backup_single_database() {
 
     if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
       generate_gz_checksum "${tar_file}" || status="failure"
+      setup_metadata "${tar_file}"
+    else
+      setup_metadata "${tar_file}"
     fi
 
     if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
@@ -164,13 +167,19 @@ backup_single_database() {
       fi
     fi
 
+
     [[ "${status}" == "success" && -n "${post_hook}" ]] && "${post_hook}" "${tar_file}"
 
   else
-    local dump_file="${BASE_FILENAME}.dmp"
-    local gz_file="${BASE_FILENAME}.dmp.gz"
 
+    local dump_file="${BASE_FILENAME}.dmp"
+    local final_file="${dump_file}"
+
+    ##########################################
+    # Dump database (encrypted or plain)
+    ##########################################
     if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      db_log "Dumping database ${DB} with encryption for ${dump_file}"
       require_encryption_key
       set -o pipefail
       pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
@@ -180,17 +189,42 @@ backup_single_database() {
       unset_dump_encryption_pass
       [[ $rc -ne 0 ]] && status="failure"
     else
+      db_log "Dumping database ${DB} without encryption for ${dump_file}"
       pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" > "${dump_file}" \
         || status="failure"
     fi
 
+    ##########################################
+    # Optional checksum on raw dump
+    ##########################################
     if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
       generate_gz_checksum "${dump_file}" || status="failure"
     fi
 
+    ##########################################
+    # Metadata (exactly once, final artifact)
+    ##########################################
+
+    if [[ "${status}" == "success" ]]; then
+        setup_metadata "${dump_file}"
+    fi
+
+    ##########################################
+    # Compress if using S3
+    ##########################################
     if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
+      local gz_file="${dump_file}.gz"
       gzip -9 -c "${dump_file}" > "${gz_file}" || status="failure"
-      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
+      final_file="${gz_file}"
+
+      ##########################################
+      # Metadata (exactly once, final artifact)
+      ##########################################
+      if [[ "${status}" == "success" ]]; then
+        setup_metadata "${final_file}"
+      fi
+
+      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
         cleanup_file "${dump_file}"
       fi
 
@@ -199,12 +233,14 @@ backup_single_database() {
       fi
 
       s3_upload "${gz_file}" || status="failure"
-      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
+
+      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
         cleanup_file "${gz_file}.sha256"
       fi
     fi
 
-    [[ "${status}" == "success" && -n "${post_hook}" ]] && "${post_hook}" "${gz_file}"
+
+    [[ "${status}" == "success" && -n "${post_hook}" ]] && "${post_hook}" "${final_file}"
   fi
 
   ##########################################
@@ -294,6 +330,7 @@ restore_recreate_db() {
 restore_dump() {
   local archive="$1"
   local db="$2"
+  local db_encryption="${3:-false}"
 
   validate_postgres_pass
   FORMAT="$(get_dump_format "${DUMP_ARGS}")"
@@ -303,17 +340,19 @@ restore_dump() {
 
   else
 
-    if [[ "${DB_DUMP_ENCRYPTION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+    if [[ "${db_encryption}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
       db_log "Restoring encrypted dump into ${db}"
       validate_dump_encryption_pass
+      local tmp_dump
+      tmp_dump="$(mktemp /tmp/decrypted.XXXXXX.dmp)"
       openssl enc -d -aes-256-cbc \
         -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" \
         -pbkdf2 -iter 10000 -md sha256 \
         -in "${archive}" \
-        -out /tmp/decrypted.dump
+        -out "${tmp_dump}"
 
-      pg_restore ${PG_CONN_PARAMETERS} /tmp/decrypted.dump -d "${db}" ${RESTORE_ARGS}
-      rm -f /tmp/decrypted.dump
+      pg_restore ${PG_CONN_PARAMETERS} "${tmp_dump}" -d "${db}" ${RESTORE_ARGS}
+      rm -f "${tmp_dump}"
       unset_dump_encryption_pass
     else
       db_log "Restoring dump into ${db}"
@@ -322,4 +361,3 @@ restore_dump() {
   fi
   unset_postgres_pass
 }
-
