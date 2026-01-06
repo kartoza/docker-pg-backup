@@ -71,22 +71,28 @@ echo "Base backup timestamp: $(date -d "@$BASE_EPOCH")"
 # Generate mock backups (0–7 days old)
 # ------------------------------------------------------------------
 for i in {0..7}; do
+  source /backup-scripts/lib/logging.sh
+  source /backup-scripts/lib/utils.sh
+  source /backup-scripts/lib/s3.sh
   OLD_EPOCH=$(( BASE_EPOCH - i * 86400 ))
   OLDER_DATE=$(date -d "@$OLD_EPOCH" +%d-%B-%Y-%H-%M)
 
   OLD_BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${OLDER_DATE}.dmp"
 
   cp -n "$BASE_FILENAME" "$OLD_BASE_FILENAME"
+  setup_metadata "${OLD_BASE_FILENAME}"
   touch -d "@$OLD_EPOCH" "$OLD_BASE_FILENAME"
+  touch -d "@$OLD_EPOCH" "${OLD_BASE_FILENAME}.meta.json"
 
   if [[ ${STORAGE_BACKEND} == 'S3' ]]; then
     gzip -9 -c "$OLD_BASE_FILENAME" > "${OLD_BASE_FILENAME}.gz"
+    setup_metadata "${OLD_BASE_FILENAME}.gz"
     touch -d "@$OLD_EPOCH" "${OLD_BASE_FILENAME}.gz"
+    touch -d "@$OLD_EPOCH" "${OLD_BASE_FILENAME}.gz.meta.json"
 
-    source /backup-scripts/lib/logging.sh
-    source /backup-scripts/lib/utils.sh
-    source /backup-scripts/lib/s3.sh
+    
     init_logging
+    echo "${OLD_BASE_FILENAME}.gz"
     s3_upload "${OLD_BASE_FILENAME}.gz"
   fi
 

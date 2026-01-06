@@ -101,7 +101,7 @@ backup_single_database() {
   local post_hook="$2"
   local status="success"
 
-  mkdir -p "${MYBACKUPDIR}"
+  create_non_existing_directory "${MYBACKUPDIR}"
 
   if [[ -z "${ARCHIVE_FILENAME:-}" ]]; then
     BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}"
@@ -121,65 +121,69 @@ backup_single_database() {
   db_log "Starting backup of database ${DB} using format ${FORMAT} at $(date +%d-%B-%Y-%H-%M)"
 
   ##########################################
-  # Perform dump
+  # DIRECTORY FORMAT
   ##########################################
   if [[ "${FORMAT}" == "directory" ]]; then
     local dump_dir="${BASE_FILENAME}.dir"
     local tar_file="${BASE_FILENAME}.dir.tar.gz"
 
     rm -rf "${dump_dir}"
-    mkdir -p "${dump_dir}"
+
+    create_non_existing_directory "${dump_dir}"
 
     if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
       db_log "ERROR: Encryption not supported with directory format"
       status="failure"
     fi
 
-    if [[ "${status}" == "success" && -d "${dump_dir}" ]]; then
+    if [[ "${status}" == "success" ]]; then
       pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" -f "${dump_dir}" \
         || status="failure"
-
-      if [[ "${status}" == "success" ]]; then
-        db_log "Tarring directory dump with max compression"
-        tar -C "$(dirname "${dump_dir}")" \
-            -I 'gzip -9' \
-            -cf "${tar_file}" "$(basename "${dump_dir}")" \
-            || status="failure"
-      fi
-
-      rm -rf "${dump_dir}"
-    else
-      db_log "Missing dump directory ${dump_dir}"
-      status="failure"
     fi
 
+    if [[ "${status}" == "success" ]]; then
+      db_log "Tarring directory dump with max compression"
+      tar -C "$(dirname "${dump_dir}")" \
+          -I 'gzip -9' \
+          -cf "${tar_file}" "$(basename "${dump_dir}")" \
+          || status="failure"
+    fi
+
+    rm -rf "${dump_dir}"
+
+    ##########################################
+    # Checksum + metadata (FINAL artifact)
+    ##########################################
     if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
       generate_gz_checksum "${tar_file}" || status="failure"
-      setup_metadata "${tar_file}"
-    else
+    fi
+
+    if [[ "${status}" == "success" ]]; then
       setup_metadata "${tar_file}"
     fi
 
     if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
       s3_upload "${tar_file}" || status="failure"
-      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]];then
+
+      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
         cleanup_file "${tar_file}.sha256"
       fi
     fi
 
-
     [[ "${status}" == "success" && -n "${post_hook}" ]] && "${post_hook}" "${tar_file}"
 
+  ##########################################
+  # CUSTOM FORMAT (-Fc)
+  ##########################################
   else
-
     local dump_file="${BASE_FILENAME}.dmp"
     local final_file="${dump_file}"
 
     ##########################################
-    # Dump database (encrypted or plain)
+    # Dump database
     ##########################################
     if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-      db_log "Dumping database ${DB} with encryption for ${dump_file}"
+      db_log "Dumping database ${DB} with encryption"
       require_encryption_key
       set -o pipefail
       pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
@@ -189,56 +193,52 @@ backup_single_database() {
       unset_dump_encryption_pass
       [[ $rc -ne 0 ]] && status="failure"
     else
-      db_log "Dumping database ${DB} without encryption for ${dump_file}"
+      db_log "Dumping database ${DB} without encryption"
       pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" > "${dump_file}" \
         || status="failure"
     fi
 
     ##########################################
-    # Optional checksum on raw dump
-    ##########################################
-    if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-      generate_gz_checksum "${dump_file}" || status="failure"
-    fi
-
-    ##########################################
-    # Metadata (exactly once, final artifact)
-    ##########################################
-
-    if [[ "${status}" == "success" ]]; then
-        setup_metadata "${dump_file}"
-    fi
-
-    ##########################################
-    # Compress if using S3
+    # S3 backend → compress first
     ##########################################
     if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
       local gz_file="${dump_file}.gz"
       gzip -9 -c "${dump_file}" > "${gz_file}" || status="failure"
       final_file="${gz_file}"
 
-      ##########################################
-      # Metadata (exactly once, final artifact)
-      ##########################################
-      if [[ "${status}" == "success" ]]; then
-        setup_metadata "${final_file}"
-      fi
 
-      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
-        cleanup_file "${dump_file}"
-      fi
 
-      if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-        generate_gz_checksum "${gz_file}" || status="failure"
-      fi
-
-      s3_upload "${gz_file}" || status="failure"
-
-      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
-        cleanup_file "${gz_file}.sha256"
-      fi
     fi
 
+    ##########################################
+    # Checksum + metadata (FINAL artifact ONLY)
+    ##########################################
+    if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      generate_gz_checksum "${final_file}" || status="failure"
+    fi
+
+    if [[ "${status}" == "success" ]]; then
+      setup_metadata "${final_file}"
+    fi
+
+
+    ##########################################
+    # Upload
+    ##########################################
+    if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
+      s3_upload "${final_file}" || status="failure"
+
+
+
+      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
+        db_log "Cleaning uncompressed file ${gz_file} "
+        cleanup_file "${final_file}.sha256"
+
+        cleanup_file "${final_file}"
+        cleanup_file "${final_file}.meta.json"
+        cleanup_file "${dump_file}"
+      fi
+    fi
 
     [[ "${status}" == "success" && -n "${post_hook}" ]] && "${post_hook}" "${final_file}"
   fi
@@ -251,16 +251,14 @@ backup_single_database() {
     end_minute="$(date +%Y-%m-%d-%H-%M)"
 
     if [[ "${DB_COUNT}" -gt 1 && "${start_minute}" == "${end_minute}" ]]; then
-      db_log "Dump finished within same minute, waiting for minute rollover to avoid timestamp collision" true
+      db_log "Dump finished within same minute, waiting for rollover" true
       wait_for_next_minute
     fi
 
-    # Recompute MYDATE for the next DB
     MYDATE="$(date +%d-%B-%Y-%H-%M)"
   fi
+
   unset_postgres_pass
-
-
   notify_monitoring "${status}" || true
   [[ "${status}" == "success" ]]
 }
