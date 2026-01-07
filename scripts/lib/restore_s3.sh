@@ -180,7 +180,7 @@ s3_restore() {
   local archive_path="${workdir}/$(basename "${archive_key}")"
   local meta_path="${archive_path}.meta.json"
 
-  restore_s3log "Downloading metadata"
+  restore_s3log "Downloading metadata to destination ${meta_path}"
   s3cmd get "s3://${BUCKET}/${meta_key}" "${meta_path}" || return 1
 
   ############################################
@@ -196,7 +196,7 @@ s3_restore() {
   checksum="$(jq -r '.checksum // empty' "${meta_path}")"
 
   if [[ -n "${checksum}" ]]; then
-    local checksum_key="${backup_key}.sha256"
+    local checksum_key="${archive_key}.sha256"
     local checksum_path="${archive_path}.sha256"
 
     restore_s3log "Downloading checksum to destination ${checksum_path}"
