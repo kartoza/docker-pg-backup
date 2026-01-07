@@ -62,7 +62,7 @@ services:
       - HOST_BUCKET=backup
       - SSL_SECURE=False
       - RESTORE_DATE_TIME=TRUE
-      - S3_RETAIN_DUMPS=TRUE
+      - S3_RETAIN_LOCAL_DUMPS=TRUE
     depends_on:
       pg_backup:
         condition: service_healthy
