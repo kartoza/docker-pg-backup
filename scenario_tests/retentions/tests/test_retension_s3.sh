@@ -8,7 +8,7 @@ pushd /tests
 PGHOST=localhost \
 PGDATABASE=gis \
 PYTHONPATH=/lib \
-  python3 -m unittest -v test_restore.TestRestore
+  python3 -m unittest -v test_s3_retentions.TestRetentionS3
 
 
 # Clean up artifact

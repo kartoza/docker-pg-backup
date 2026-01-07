@@ -1,0 +1,361 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+
+############################################
+# Helpers
+############################################
+db_log() {
+  log "[DB] $*"
+}
+
+############################################
+# Readiness check
+############################################
+check_db_ready() {
+  local max_wait="${DB_READY_TIMEOUT:-20}"
+  local interval=2
+  local elapsed=0
+
+  db_log "Checking database readiness (timeout=${max_wait}s)"
+
+  while true; do
+    validate_postgres_pass
+    if psql ${PG_CONN_PARAMETERS} -d postgres -c "SELECT 1" >/dev/null 2>&1; then
+      db_log "Database is ready"
+      unset_postgres_pass
+      return 0
+    fi
+
+    if (( elapsed >= max_wait )); then
+      db_log "ERROR: Database not ready after ${max_wait}s"
+      return 1
+    fi
+
+    sleep "${interval}"
+    elapsed=$(( elapsed + interval ))
+  done
+}
+
+############################################
+# Globals backup
+############################################
+backup_globals() {
+  db_log "Starting globals backup at $(date +%d-%B-%Y-%H-%M)"
+
+  set -o pipefail
+
+  if [[ "${STORAGE_BACKEND}" == "S3" ]]; then
+    db_log "Backing up globals.sql to S3 bucket ${BUCKET}"
+    validate_postgres_pass
+    if pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
+      | s3cmd put - "s3://${BUCKET}/globals.sql"
+    then
+      db_log "Globals backup to S3 completed successfully at $(date +%d-%B-%Y-%H-%M)"
+      unset_postgres_pass
+    else
+      db_log "ERROR: Globals backup to S3 failed at $(date +%d-%B-%Y-%H-%M)"
+      notify_monitoring "failure"
+      exit 1
+    fi
+
+  else
+
+
+    db_log "Backing up globals.sql to filesystem (${MYBASEDIR})"
+    validate_postgres_pass
+    if pg_dumpall ${PG_CONN_PARAMETERS} --globals-only \
+      > "${MYBASEDIR}/globals.sql"
+    then
+      db_log "Globals backup to filesystem completed successfully at $(date +%d-%B-%Y-%H-%M)"
+      unset_postgres_pass
+    else
+      db_log "ERROR: Globals backup to filesystem failed at $(date +%d-%B-%Y-%H-%M)"
+      notify_monitoring "failure"
+      exit 1
+    fi
+  fi
+
+  set +o pipefail
+}
+############################################
+# Main DB backup dispatcher
+############################################
+backup_databases() {
+  local post_hook="${1:-}"
+  DB_COUNT=$(wc -w <<< "${DBLIST}")
+  for DB in ${DBLIST}; do
+    backup_single_database "${DB}" "${post_hook}"
+
+    if [[ "${DB_TABLES,,}" =~ [Tt][Rr][Uu][Ee] ]]; then
+      dump_tables "${DB}"
+    fi
+  done
+}
+
+############################################
+# Single DB backup
+############################################
+backup_single_database() {
+  local DB="$1"
+  local post_hook="$2"
+  local status="success"
+
+  create_non_existing_directory "${MYBACKUPDIR}"
+
+  if [[ -z "${ARCHIVE_FILENAME:-}" ]]; then
+    BASE_FILENAME="${MYBACKUPDIR}/${DUMPPREFIX}_${DB}.${MYDATE}"
+  else
+    BASE_FILENAME="${MYBASEDIR}/${ARCHIVE_FILENAME}.${DB}"
+  fi
+
+  validate_postgres_pass
+
+  ##########################################
+  # Detect dump format
+  ##########################################
+  FORMAT="$(get_dump_format "${DUMP_ARGS}")"
+  local start_minute
+  start_minute="$(date +%Y-%m-%d-%H-%M)"
+
+  db_log "Starting backup of database ${DB} using format ${FORMAT} at $(date +%d-%B-%Y-%H-%M)"
+
+  ##########################################
+  # DIRECTORY FORMAT
+  ##########################################
+  if [[ "${FORMAT}" == "directory" ]]; then
+    local dump_dir="${BASE_FILENAME}.dir"
+    local tar_file="${BASE_FILENAME}.dir.tar.gz"
+
+    rm -rf "${dump_dir}"
+
+    create_non_existing_directory "${dump_dir}"
+
+    if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      db_log "ERROR: Encryption not supported with directory format"
+      status="failure"
+    fi
+
+    if [[ "${status}" == "success" ]]; then
+      pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" -f "${dump_dir}" \
+        || status="failure"
+    fi
+
+    if [[ "${status}" == "success" ]]; then
+      db_log "Tarring directory dump with max compression"
+      tar -C "$(dirname "${dump_dir}")" \
+          -I 'gzip -9' \
+          -cf "${tar_file}" "$(basename "${dump_dir}")" \
+          || status="failure"
+    fi
+
+    rm -rf "${dump_dir}"
+
+    ##########################################
+    # Checksum + metadata (FINAL artifact)
+    ##########################################
+    if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      generate_gz_checksum "${tar_file}" || status="failure"
+    fi
+
+    if [[ "${status}" == "success" ]]; then
+      setup_metadata "${tar_file}"
+    fi
+
+    if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
+      s3_upload "${tar_file}" || status="failure"
+
+      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
+        cleanup_file "${tar_file}.sha256"
+      fi
+    fi
+
+    [[ "${status}" == "success" && -n "${post_hook}" ]] && "${post_hook}" "${tar_file}"
+
+  ##########################################
+  # CUSTOM FORMAT (-Fc)
+  ##########################################
+  else
+    local dump_file="${BASE_FILENAME}.dmp"
+    local final_file="${dump_file}"
+
+    ##########################################
+    # Dump database
+    ##########################################
+    if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      db_log "Dumping database ${DB} with encryption"
+      require_encryption_key
+      set -o pipefail
+      pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" \
+        | encrypt_stream > "${dump_file}"
+      rc=$?
+      set +o pipefail
+      unset_dump_encryption_pass
+      [[ $rc -ne 0 ]] && status="failure"
+    else
+      db_log "Dumping database ${DB} without encryption"
+      pg_dump ${PG_CONN_PARAMETERS} ${DUMP_ARGS} -d "${DB}" > "${dump_file}" \
+        || status="failure"
+    fi
+
+    ##########################################
+    # S3 backend → compress first
+    ##########################################
+    if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
+      local gz_file="${dump_file}.gz"
+      gzip -9 -c "${dump_file}" > "${gz_file}" || status="failure"
+      final_file="${gz_file}"
+
+
+
+    fi
+
+    ##########################################
+    # Checksum + metadata (FINAL artifact ONLY)
+    ##########################################
+    if [[ "${status}" == "success" && "${CHECKSUM_VALIDATION}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      generate_gz_checksum "${final_file}" || status="failure"
+    fi
+
+    if [[ "${status}" == "success" ]]; then
+      setup_metadata "${final_file}"
+    fi
+
+
+    ##########################################
+    # Upload
+    ##########################################
+    if [[ "${status}" == "success" && "${STORAGE_BACKEND}" == "S3" ]]; then
+      s3_upload "${final_file}" || status="failure"
+
+
+
+      if [[ "${S3_RETAIN_LOCAL_DUMPS:-false}" =~ ^([Ff][Aa][Ll][Ss][Ee])$ ]]; then
+        db_log "Cleaning uncompressed file ${gz_file} "
+        cleanup_file "${final_file}.sha256"
+
+        cleanup_file "${final_file}"
+        cleanup_file "${final_file}.meta.json"
+        cleanup_file "${dump_file}"
+      fi
+    fi
+
+    [[ "${status}" == "success" && -n "${post_hook}" ]] && "${post_hook}" "${final_file}"
+  fi
+
+  ##########################################
+  # Final status + monitoring
+  ##########################################
+  if [[ "${status}" == "success" ]]; then
+    local end_minute
+    end_minute="$(date +%Y-%m-%d-%H-%M)"
+
+    if [[ "${DB_COUNT}" -gt 1 && "${start_minute}" == "${end_minute}" ]]; then
+      db_log "Dump finished within same minute, waiting for rollover" true
+      wait_for_next_minute
+    fi
+
+    MYDATE="$(date +%d-%B-%Y-%H-%M)"
+  fi
+
+  unset_postgres_pass
+  notify_monitoring "${status}" || true
+  [[ "${status}" == "success" ]]
+}
+############################################
+# Table-level dumps
+############################################
+dump_tables() {
+  local DATABASE="$1"
+
+  db_log "Starting table-level dumps for ${DATABASE}"
+
+  mapfile -t tables < <(
+    PGPASSWORD="${POSTGRES_PASS}" \
+    psql ${PG_CONN_PARAMETERS} -d "${DATABASE}" -At -F '.' \
+    -c "SELECT table_schema, table_name
+        FROM information_schema.tables
+        WHERE table_schema NOT IN ('information_schema','pg_catalog','topology', 'pg_toast')
+        ORDER BY table_schema, table_name"
+  )
+
+  for tbl in "${tables[@]}"; do
+    local schema="${tbl%%.*}"
+    local table="${tbl##*.}"
+    local fqtn="${schema}.${table}"
+    local out="${MYBACKUPDIR}/${DUMPPREFIX}_${fqtn}_${MYDATE}.sql"
+
+
+
+    if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      set -o pipefail
+      db_log "Dumping Encrypted table ${fqtn}"
+      pg_dump ${PG_CONN_PARAMETERS} -d "${DATABASE}" -t "${fqtn}" \
+        | encrypt_stream \
+        > "${out}"
+      set +o pipefail
+    else
+      db_log "Dumping table ${fqtn}"
+      pg_dump ${PG_CONN_PARAMETERS} -d "${DATABASE}" -t "${fqtn}" \
+        > "${out}"
+    fi
+  done
+}
+
+############################################
+# Drop & recreate DB
+############################################
+restore_recreate_db() {
+  local db="$1"
+
+  db_log "Recreating database ${db}"
+
+  validate_postgres_pass
+
+  dropdb ${PG_CONN_PARAMETERS} --if-exists --force "${db}"
+  createdb ${PG_CONN_PARAMETERS} -O "${POSTGRES_USER}" "${db}"
+
+  if [[ -n "${WITH_POSTGIS:-}" ]]; then
+    db_log "Enabling PostGIS"
+    psql ${PG_CONN_PARAMETERS} -d "${db}" -c 'CREATE EXTENSION IF NOT EXISTS postgis;'
+  fi
+  unset_postgres_pass
+}
+
+############################################
+# Restore dump (encrypted or not)
+############################################
+restore_dump() {
+  local archive="$1"
+  local db="$2"
+  local db_encryption="${3:-false}"
+
+  validate_postgres_pass
+  FORMAT="$(get_dump_format "${DUMP_ARGS}")"
+  if [[ "${FORMAT}" == "directory" ]]; then
+    db_log "Restoring directory dump into ${db}"
+    pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
+
+  else
+
+    if [[ "${db_encryption}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+      db_log "Restoring encrypted dump into ${db}"
+      validate_dump_encryption_pass
+      local tmp_dump
+      tmp_dump="$(mktemp /tmp/decrypted.XXXXXX.dmp)"
+      openssl enc -d -aes-256-cbc \
+        -pass pass:"${DB_DUMP_ENCRYPTION_PASS_PHRASE}" \
+        -pbkdf2 -iter 10000 -md sha256 \
+        -in "${archive}" \
+        -out "${tmp_dump}"
+
+      pg_restore ${PG_CONN_PARAMETERS} "${tmp_dump}" -d "${db}" ${RESTORE_ARGS}
+      rm -f "${tmp_dump}"
+      unset_dump_encryption_pass
+    else
+      db_log "Restoring dump into ${db}"
+      pg_restore ${PG_CONN_PARAMETERS} "${archive}" -d "${db}" ${RESTORE_ARGS}
+    fi
+  fi
+  unset_postgres_pass
+}

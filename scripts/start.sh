@@ -1,7 +1,11 @@
 #!/bin/bash
 DEFAULT_EXTRA_CONF_DIR="/settings"
 
-function file_env {
+
+########################################
+# Helpers
+########################################
+file_env() {
 	local var="$1"
 	local fileVar="${var}_FILE"
 	local def="${2:-}"
@@ -19,148 +23,125 @@ function file_env {
 	unset "$fileVar"
 }
 
-if [ -z "${RUN_AS_ROOT}" ]; then
-  RUN_AS_ROOT=true
-fi
+env_default() {
+  local var="$1"
+  local default="$2"
 
-if [ -z "${EXTRA_CONF_DIR}" ]; then
-  EXTRA_CONF_DIR=${DEFAULT_EXTRA_CONF_DIR}
-fi
-
-if [ -z "${STORAGE_BACKEND}" ]; then
-	STORAGE_BACKEND="FILE"
-fi
-
-file_env 'ACCESS_KEY_ID'
-
-if [ -z "${ACCESS_KEY_ID}" ]; then
-	ACCESS_KEY_ID=
-fi
-
-file_env 'SECRET_ACCESS_KEY'
-if [ -z "${SECRET_ACCESS_KEY}" ]; then
-	SECRET_ACCESS_KEY=
-fi
-
-file_env 'DEFAULT_REGION'
-if [ -z "${DEFAULT_REGION}" ]; then
-	DEFAULT_REGION=us-west-2
-fi
-
-file_env 'BUCKET'
-if [ -z "${BUCKET}" ]; then
-	BUCKET=backups
-fi
-
-file_env 'HOST_BASE'
-if [ -z "${HOST_BASE}" ]; then
-	HOST_BASE=
-fi
-
-if [ -z "${HOST_BUCKET}" ]; then
-	HOST_BUCKET=
-fi
-
-if [ -z "${SSL_SECURE}" ]; then
-	SSL_SECURE=True
-fi
-
-if [ -z "${DUMP_ARGS}" ]; then
-	 DUMP_ARGS='-Fc'
-fi
-
-if [ -z "${RESTORE_ARGS}" ]; then
-	RESTORE_ARGS='-j 4'
-fi
-
-file_env 'POSTGRES_USER'
-if [ -z "${POSTGRES_USER}" ]; then
-  POSTGRES_USER=docker
-fi
-
-file_env 'POSTGRES_PASS'
-if [ -z "${POSTGRES_PASS}" ]; then
-  POSTGRES_PASS=docker
-fi
-
-if [ -z "${POSTGRES_PORT}" ]; then
-  POSTGRES_PORT=5432
-fi
-
-if [ -z "${POSTGRES_HOST}" ]; then
-  POSTGRES_HOST=db
-fi
-
-if [ -z "${DUMPPREFIX}" ]; then
-  DUMPPREFIX=PG
-fi
-
-if [ -z "${ARCHIVE_FILENAME}" ]; then
-  ARCHIVE_FILENAME=
-fi
-
-# How old can files and dirs be before getting trashed? In minutes
-if [ -z "${REMOVE_BEFORE}" ]; then
-  REMOVE_BEFORE=
-fi
-
-if [ -z "${CONSOLIDATE_AFTER}" ]; then
-  CONSOLIDATE_AFTER=
-fi
-
-
-if [ -z "${PG_CONN_PARAMETERS}" ]; then
-  PG_CONN_PARAMETERS="-h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"
-fi
-
-# How old can files and dirs be before getting trashed? In minutes
-if [ -z "${DBLIST}" ]; then
-
-  until PGPASSWORD=${POSTGRES_PASS} pg_isready ${PG_CONN_PARAMETERS}; do
-    sleep 1
-  done
-  DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
-fi
-
-if [ -z "${RUN_ONCE}" ]; then
-  RUN_ONCE=FALSE
-fi
-
-if [ -z "${DB_DUMP_ENCRYPTION}" ]; then
-  DB_DUMP_ENCRYPTION=FALSE
-fi
-
-if [ -z "${CONSOLE_LOGGING}" ]; then
-  CONSOLE_LOGGING=FALSE
-fi
-
-if [ -z "${DB_TABLES}" ]; then
-  DB_TABLES=FALSE
-fi
-
-file_env 'DB_DUMP_ENCRYPTION_PASS_PHRASE'
-if [ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE}" ]; then
-  STRING_LENGTH=30
-  random_pass_string=$(cat /dev/urandom | tr -dc '[:alnum:]' | head -c "${STRING_LENGTH}")
-  DB_DUMP_ENCRYPTION_PASS_PHRASE=${random_pass_string}
-  export DB_DUMP_ENCRYPTION_PASS_PHRASE
-fi
-
-
-function cron_config() {
-  if [[ -f ${EXTRA_CONFIG_DIR}/backups-cron ]]; then
-      envsubst < ${EXTRA_CONFIG_DIR}/backups-cron > /backup-scripts/backups-cron
-  else
-      # default value
-
-      if [ -z "${CRON_SCHEDULE}" ]; then
-        export CRON_SCHEDULE='0 23 * * *'
-      fi
-      envsubst < /build_data/backups-cron > /backup-scripts/backups-cron
-
+  if [[ -z "${!var:-}" ]]; then
+    export "${var}=${default}"
   fi
 }
 
+########################################
+# Core defaults
+########################################
+env_default RUN_AS_ROOT true
+env_default EXTRA_CONF_DIR "${DEFAULT_EXTRA_CONF_DIR}"
+env_default STORAGE_BACKEND FILE
+
+########################################
+# Secrets / file-backed vars
+########################################
+file_env ACCESS_KEY_ID
+env_default ACCESS_KEY_ID ""
+
+file_env DEFAULT_REGION
+env_default DEFAULT_REGION us-west-2
+
+file_env BUCKET
+env_default BUCKET backups
+
+########################################
+# Connection / storage
+########################################
+file_env HOST_BASE
+env_default HOST_BASE ""
+
+env_default HOST_BUCKET ""
+env_default SSL_SECURE True
+
+env_default DUMP_ARGS "-Fc"
+env_default RESTORE_ARGS "-j 4"
+
+########################################
+# Postgres credentials
+########################################
+file_env POSTGRES_USER
+env_default POSTGRES_USER docker
+
+
+env_default POSTGRES_PORT 5432
+env_default POSTGRES_HOST db
+
+########################################
+# Naming / retention
+########################################
+env_default DUMPPREFIX PG
+env_default ARCHIVE_FILENAME ""
+
+env_default REMOVE_BEFORE ""
+env_default CONSOLIDATE_AFTER ""
+
+########################################
+# Derived values (must come AFTER deps)
+########################################
+env_default PG_CONN_PARAMETERS "-h ${POSTGRES_HOST} -p ${POSTGRES_PORT} -U ${POSTGRES_USER}"
+
+########################################
+# Runtime flags
+########################################
+env_default RUN_ONCE FALSE
+env_default DB_DUMP_ENCRYPTION FALSE
+env_default DB_TABLES FALSE
+env_default CLEANUP_DRY_RUN false
+env_default CHECKSUM_VALIDATION false
+env_default S3_RETAIN_LOCAL_DUMPS false
+env_default CONSOLE_LOGGING true
+env_default JSON_LOGGING false
+
+########################################
+# Time calculations
+########################################
+env_default TIME_MINUTES "$((REMOVE_BEFORE * 24 * 60))"
+env_default MIN_SAVED_FILE 0
+env_default CONSOLIDATE_AFTER 0
+env_default CONSOLIDATE_AFTER_MINUTES "$((CONSOLIDATE_AFTER * 24 * 60))"
+
+########################################
+# Restore / monitoring
+########################################
+env_default TARGET_ARCHIVE_DATETIME ""
+env_default TARGET_ARCHIVE_DATE_ONLY ""
+env_default MONITORING_ENDPOINT_COMMAND ""
+env_default ENTRYPOINT_START backup
+
+
+########################################
+# Cron setting
+########################################
+build_cron() {
+  cat > /backup-scripts/backups-cron <<EOF
+${CRON_SCHEDULE} /bin/bash /backup-scripts/backups.sh
+
+EOF
+}
+
+
+function cron_config() {
+  if [[ -f "${EXTRA_CONF_DIR}/backups-cron" ]]; then
+    envsubst < "${EXTRA_CONF_DIR}/backups-cron" > /backup-scripts/backups-cron
+  else
+    if [[ -z "${CRON_SCHEDULE}" ]]; then
+      export CRON_SCHEDULE='0 23 * * *'
+    fi
+
+    build_cron
+  fi
+}
+
+########################################
+# File Permissions
+########################################
 function directory_checker() {
   DATA_PATH=$1
   if [ -d "$DATA_PATH" ];then
@@ -175,115 +156,139 @@ function directory_checker() {
 function non_root_permission() {
   USER="$1"
   GROUP="$2"
-  services=("${DEFAULT_EXTRA_CONF_DIR}" "/build_data" "/root/" "/backups" "/etc" "/var/log" "/var/run/" "/usr/lib" "/usr/bin/")
+  services=("${EXTRA_CONF_DIR}" "/build_data" "/root/" "/backups" "/etc" "/var/log" "/var/run/" "/usr/lib" "/usr/bin/")
   for paths in "${services[@]}"; do
     directory_checker "${paths}"
   done
 }
 
+mkdir -p ${EXTRA_CONF_DIR}
 
-mkdir -p ${DEFAULT_EXTRA_CONF_DIR}
-# Copy settings for cron file
-if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
-   export CONSOLE_LOGGING_OUTPUT='/proc/1/fd/1 2>&1'
-else
-   export CONSOLE_LOGGING_OUTPUT='/var/log/cron.out 2>&1'
-fi
+configure_env_variables() {
+  # Vars that should be quoted (strings, secrets, paths)
+  local quoted_vars=(
+    PATH EXTRA_CONF_DIR STORAGE_BACKEND ACCESS_KEY_ID
+    DEFAULT_REGION BUCKET HOST_BASE HOST_BUCKET SSL_SECURE
+    DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_HOST
+    DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION
+    PG_CONN_PARAMETERS DB_TABLES  CLEANUP_DRY_RUN
+    CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND ENTRYPOINT_START JSON_LOGGING
+  )
 
-cron_config
+  # Vars that should be unquoted (numeric values)
+  local unquoted_vars=(
+    POSTGRES_PORT REMOVE_BEFORE CONSOLIDATE_AFTER MIN_SAVED_FILE RUN_ONCE
+    TIME_MINUTES CONSOLIDATE_AFTER_MINUTES
+  )
 
-function configure_env_variables() {
-echo "
-export PATH=\"${PATH}\"
-export EXTRA_CONF_DIR=\"${EXTRA_CONF_DIR}\"
-export STORAGE_BACKEND=\"${STORAGE_BACKEND}\"
-export ACCESS_KEY_ID=\"${ACCESS_KEY_ID}\"
-export SECRET_ACCESS_KEY=\"${SECRET_ACCESS_KEY}\"
-export DEFAULT_REGION=\"${DEFAULT_REGION}\"
-export BUCKET=\"${BUCKET}\"
-export HOST_BASE=\"${HOST_BASE}\"
-export HOST_BUCKET=\"${HOST_BUCKET}\"
-export SSL_SECURE=\"${SSL_SECURE}\"
-export DUMP_ARGS=\"${DUMP_ARGS}\"
-export RESTORE_ARGS=\"${RESTORE_ARGS}\"
-export POSTGRES_USER=\"${POSTGRES_USER}\"
-export POSTGRES_PASS=\"$POSTGRES_PASS\"
-export POSTGRES_PORT="${POSTGRES_PORT}"
-export POSTGRES_HOST=\"${POSTGRES_HOST}\"
-export DUMPPREFIX=\"${DUMPPREFIX}\"
-export ARCHIVE_FILENAME=\"${ARCHIVE_FILENAME}\"
-export REMOVE_BEFORE="${REMOVE_BEFORE}"
-export CONSOLIDATE_AFTER="${CONSOLIDATE_AFTER}"
-export MIN_SAVED_FILE="${MIN_SAVED_FILE}"
-export RUN_ONCE="${RUN_ONCE}"
-DB_DUMP_ENCRYPTION_PASS_PHRASE=\"${DB_DUMP_ENCRYPTION_PASS_PHRASE}\"
-DB_DUMP_ENCRYPTION="${DB_DUMP_ENCRYPTION}"
-export PG_CONN_PARAMETERS=\"${PG_CONN_PARAMETERS}\"
-export DBLIST=\"${DBLIST}\"
-export DB_TABLES=\"${DB_TABLES}\"
- " > /backup-scripts/pgenv.sh
+  {
+    for var in "${quoted_vars[@]}"; do
+      printf 'export %s="%s"\n' "$var" "${!var}"
+    done
 
-echo "Start script running with these environment options"
-set | grep PG
-
+    for var in "${unquoted_vars[@]}"; do
+      printf 'export %s=%s\n' "$var" "${!var}"
+    done
+  } > /backup-scripts/pgenv.sh
 }
-configure_env_variables
 
-if [[ ${CONSOLE_LOGGING} =~ [Tt][Rr][Uu][Ee] ]];then
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/proc/1/fd/1 2>\&1#g' /backup-scripts/backups.sh
-else
-   sed -i 's#${CONSOLE_LOGGING_OUTPUT}#/var/log/cron.out 2>\&1#g' /backup-scripts/backups.sh
-fi
-
-# Fix variables not interpolated
-sed -i "s/'//g" /backup-scripts/backups-cron
-sed -i 's/\"//g' /backup-scripts/backups-cron
-
-# Setup cron job
 
 # Gosu preparations
-if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
-  USER_ID=${POSTGRES_UID:-1000}
-  GROUP_ID=${POSTGRES_GID:-1000}
-  USER_NAME=${USER:-postgresuser}
-  DB_GROUP_NAME=${GROUP_NAME:-postgresusers}
+user_permissions(){
 
-  export USER_NAME=${USER_NAME}
-  export DB_GROUP_NAME=${DB_GROUP_NAME}
+  if [[ ${RUN_AS_ROOT} =~ [Ff][Aa][Ll][Ss][Ee] ]];then
+    USER_ID=${POSTGRES_UID:-1000}
+    GROUP_ID=${POSTGRES_GID:-1000}
+    USER_NAME=${USER:-postgresuser}
+    DB_GROUP_NAME=${GROUP_NAME:-postgresusers}
 
-  # Add group
-  if [ ! $(getent group "${DB_GROUP_NAME}") ]; then
-    groupadd -r "${DB_GROUP_NAME}" -g "${GROUP_ID}"
+    export USER_NAME=${USER_NAME}
+    export DB_GROUP_NAME=${DB_GROUP_NAME}
+
+    # Add group
+    if [ ! $(getent group "${DB_GROUP_NAME}") ]; then
+      groupadd -r "${DB_GROUP_NAME}" -g "${GROUP_ID}"
+    fi
+
+    # Add user to system
+    if id "${USER_NAME}" &>/dev/null; then
+        echo ' skipping user creation'
+    else
+        useradd -l -m -d /home/"${USER_NAME}"/ -u "${USER_ID}" --gid "${GROUP_ID}" -s /bin/bash -G "${DB_GROUP_NAME}" "${USER_NAME}"
+    fi
+
   fi
+}
 
-  # Add user to system
-  if id "${USER_NAME}" &>/dev/null; then
-      echo ' skipping user creation'
+
+setup_cron_env() {
+  if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
+    user="root"
+    group="root"
+    cron_tab_command="crontab /backup-scripts/backups-cron"
+    cron_command="cron -f"
   else
-      useradd -l -m -d /home/"${USER_NAME}"/ -u "${USER_ID}" --gid "${GROUP_ID}" -s /bin/bash -G "${DB_GROUP_NAME}" "${USER_NAME}"
+    user="${USER_NAME}"
+    group="${DB_GROUP_NAME}"
+    cron_tab_command="crontab -u ${user} /backup-scripts/backups-cron"
+    cron_command="gosu ${user} cron -f"
   fi
+}
 
-fi
+run_backup() {
+  non_root_permission "${user}" "${group}"
 
-if [[ ${RUN_AS_ROOT} =~ [Tt][Rr][Uu][Ee] ]]; then
-  user="root"
-  group="root"
-  cron_tab_command="crontab /backup-scripts/backups-cron"
-  cron_command="cron -f"
-else
-  user="${USER_NAME}"
-  group="${DB_GROUP_NAME}"
-  cron_tab_command="crontab -u ${user} /backup-scripts/backups-cron"
-  cron_command="gosu ${USER_NAME} cron -f"
-fi
+  if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
+    echo -e "\e[32m ------------------------------------------------- \033[0m"
+    echo -e "\e[32m [Entrypoint] Run backup script as a once off job. \033[0m"
+    echo -e "\e[32m [Entrypoint] If CONSOLE_LOGGING=True, logs appear in Docker output else the logs are written to file. \033[0m"
+    /backup-scripts/backups.sh
+  else
+    echo -e "\e[32m ----------------------------------------------------------- \033[0m"
+    echo -e "\e[32m [Entrypoint] Run backup script as a cron job in foreground. \033[0m"
+    echo -e "\e[32m [Entrypoint] If CONSOLE_LOGGING=True, logs appear in Docker output else the logs are written to file. \033[0m"
+    chmod gu+rw /var/run
+    chmod gu+s /usr/sbin/cron
+    eval "${cron_tab_command}"
+    eval "${cron_command}"
+  fi
+}
 
-non_root_permission "${user}" "${group}"
 
-if [[ ${RUN_ONCE} =~ [Tt][Rr][Uu][Ee] ]]; then
-  /backup-scripts/backups.sh
-else
-  chmod gu+rw /var/run
-  chmod gu+s /usr/sbin/cron
-  ${cron_tab_command}
-  ${cron_command}
-fi
+run_restore() {
+  echo -e "\e[32m ------------------------------- \033[0m"
+  echo -e "\e[32m [Entrypoint] Run restore logic. \033[0m"
+  exec /backup-scripts/restore.sh
+}
+
+run_shell() {
+  echo -e "\e[32m ------------------------------- \033[0m"
+  echo -e "\e[32m [Entrypoint] Run shell.          \033[0m"
+  exec /bin/bash
+}
+
+
+# Main Entrypoint
+cron_config
+configure_env_variables
+user_permissions
+setup_cron_env
+
+
+case "${ENTRYPOINT_START,,}" in
+  backup)
+    run_backup
+    ;;
+  restore)
+    run_restore
+    ;;
+  shell)
+    run_shell
+    ;;
+  *)
+    echo -e "\e[32m ------------------------------------------------------------ \033[0m"
+    echo -e "\e[32m [Entrypoint] Invalid ENTRYPOINT_START='${ENTRYPOINT_START}'. \033[0m"
+    echo -e "\e[32m [Entrypoint] Valid values: backup | restore | shell., defaulting to backup \033[0m"
+    ENTRYPOINT_START=backup
+    ;;
+esac

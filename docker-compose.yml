@@ -29,8 +29,8 @@ services:
       - POSTGRES_PASS=docker
       - POSTGRES_PORT=5432
       - RUN_AS_ROOT=true
-      - CRON_SCHEDULE="*/5 * * * *"
-      #- CONSOLE_LOGGING=TRUE
+      #- CRON_SCHEDULE=*/2 * * * *
+      - CONSOLE_LOGGING=TRUE
       #- DB_DUMP_ENCRYPTION=true
       #- DB_TABLES=TRUE
     restart: on-failure
