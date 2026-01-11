@@ -3,6 +3,13 @@ set -Eeuo pipefail
 shopt -s inherit_errexit
 
 ############################################
+# STDOUT redirection
+############################################
+if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+  exec >> /proc/1/fd/1 2>&1
+fi
+
+############################################
 # Paths
 ############################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -45,10 +52,6 @@ mkdir -p "${MYBASEDIR}"
 ############################################
 
 configure_sources() {
-  # Import container environment (CRITICAL for cron)
-  if [[ -f /proc/1/environ ]]; then
-    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^[A-Z_]+=') || true
-  fi
   # Always source the environment file first
   [[ -f /backup-scripts/pgenv.sh ]] && source /backup-scripts/pgenv.sh
 
@@ -73,9 +76,6 @@ configure_sources() {
   done
 }
 configure_sources
-if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-  exec >> /proc/1/fd/1 2>&1
-fi
 
 ############################################
 # Traps
@@ -91,11 +91,10 @@ init_logging
 
 log "Backup job started at $(date +%d-%B-%Y-%H-%M)" true
 
-# Check if DB is ready before getting the lists
-if [[ -z "${POSTGRES_PASS:-}" ]]; then
-  log "CRITICAL: POSTGRES_PASS missing after env bootstrap" true
-  exit 1
-fi
+############################################
+# DB list and readiness probe
+############################################
+
 check_db_ready
 
 if [ -z "${DBLIST:-}" ]; then
@@ -106,8 +105,6 @@ if [ -z "${DBLIST:-}" ]; then
   export DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
   log "Database list is::  ${DBLIST}"
 fi
-
-
 
 
 ############################################

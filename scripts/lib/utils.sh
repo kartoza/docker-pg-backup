@@ -354,10 +354,8 @@ file_env() {
 # Postgres password handling
 ############################################
 validate_postgres_pass() {
-  file_env POSTGRES_PASS
-
   if [[ -z "${POSTGRES_PASS:-}" ]]; then
-    utils_log "ERROR: Postgres superuser pass is required"
+    utils_log "ERROR: Postgres superuser pass is required, currently set to null"
     return 1
   fi
 
@@ -374,15 +372,9 @@ unset_postgres_pass() {
 validate_dump_encryption_pass() {
   # Only relevant when encryption is enabled
   if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee]|1)$ ]]; then
-    file_env DB_DUMP_ENCRYPTION_PASS_PHRASE
-
     if [[ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE:-}" ]]; then
-      utils_log "PASSWORD: Generating random DB_DUMP_ENCRYPTION_PASS_PHRASE"
-      local STRING_LENGTH=30
-      DB_DUMP_ENCRYPTION_PASS_PHRASE="$(
-        tr -dc '[:alnum:]' < /dev/urandom | head -c "${STRING_LENGTH}"
-      )"
-      export DB_DUMP_ENCRYPTION_PASS_PHRASE
+      utils_log "ERROR: DB_DUMP_ENCRYPTION_PASS_PHRASE is required when DB_DUMP_ENCRYPTION=true"
+      return 1
     fi
   fi
 }
