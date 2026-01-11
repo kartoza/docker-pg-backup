@@ -45,6 +45,10 @@ mkdir -p "${MYBASEDIR}"
 ############################################
 
 configure_sources() {
+  # Import container environment (CRITICAL for cron)
+  if [[ -f /proc/1/environ ]]; then
+    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^[A-Z_]+=') || true
+  fi
   # Always source the environment file first
   [[ -f /backup-scripts/pgenv.sh ]] && source /backup-scripts/pgenv.sh
 
@@ -88,6 +92,10 @@ init_logging
 log "Backup job started at $(date +%d-%B-%Y-%H-%M)" true
 
 # Check if DB is ready before getting the lists
+if [[ -z "${POSTGRES_PASS:-}" ]]; then
+  log "CRITICAL: POSTGRES_PASS missing after env bootstrap" true
+  exit 1
+fi
 check_db_ready
 
 if [ -z "${DBLIST:-}" ]; then
