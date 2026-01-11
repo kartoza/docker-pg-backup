@@ -79,6 +79,7 @@ jobs:
           - ownership
           - retentions
           - monitoring
+          - cron
     steps:
       - uses: actions/checkout@v6
       - name: Download artifact
