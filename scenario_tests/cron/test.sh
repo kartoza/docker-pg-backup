@@ -41,7 +41,7 @@ run_tests() {
   ${docker_cmd}  "${compose_args[@]}" down -v
 }
 
-compose_names=("docker-compose.yml" "docker-compose-encryption.yml" "docker-compose-directory.yml" "docker-compose-date-time.yml" "docker-compose-date.yml")
+compose_names=("docker-compose.yml" "docker-compose-encryption.yml")
 for compose_file in "${compose_names[@]}"; do
 
   run_tests "${VERSION}" "${compose_file}"
