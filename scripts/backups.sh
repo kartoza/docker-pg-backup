@@ -3,6 +3,13 @@ set -Eeuo pipefail
 shopt -s inherit_errexit
 
 ############################################
+# STDOUT redirection
+############################################
+if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
+  exec >> /proc/1/fd/1 2>&1
+fi
+
+############################################
 # Paths
 ############################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -69,9 +76,6 @@ configure_sources() {
   done
 }
 configure_sources
-if [[ "${CONSOLE_LOGGING:-false}" =~ ^([Tt][Rr][Uu][Ee])$ ]]; then
-  exec >> /proc/1/fd/1 2>&1
-fi
 
 ############################################
 # Traps
@@ -87,7 +91,10 @@ init_logging
 
 log "Backup job started at $(date +%d-%B-%Y-%H-%M)" true
 
-# Check if DB is ready before getting the lists
+############################################
+# DB list and readiness probe
+############################################
+
 check_db_ready
 
 if [ -z "${DBLIST:-}" ]; then
@@ -98,8 +105,6 @@ if [ -z "${DBLIST:-}" ]; then
   export DBLIST=$(PGPASSWORD=${POSTGRES_PASS} psql ${PG_CONN_PARAMETERS} -l | awk '$1 !~ /[+(|:]|Name|List|template|postgres/ {print $1}')
   log "Database list is::  ${DBLIST}"
 fi
-
-
 
 
 ############################################

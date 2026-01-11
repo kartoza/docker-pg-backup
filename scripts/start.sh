@@ -72,6 +72,30 @@ env_default POSTGRES_USER docker
 
 env_default POSTGRES_PORT 5432
 env_default POSTGRES_HOST db
+########################################
+# Postgres credentials (SECRET)
+########################################
+file_env POSTGRES_PASS
+
+if [[ -z "${POSTGRES_PASS:-}" ]]; then
+  echo >&2 "CRITICAL: POSTGRES_PASS is required"
+  exit 1
+fi
+
+file_env DB_DUMP_ENCRYPTION_PASS_PHRASE
+
+
+if [[ -z "${DB_DUMP_ENCRYPTION_PASS_PHRASE:-}" ]]; then
+    if [[ "${DB_DUMP_ENCRYPTION:-false}" =~ ^([Tt][Rr][Uu][Ee]|1)$ ]]; then
+      echo "PASSWORD: Generating random DB_DUMP_ENCRYPTION_PASS_PHRASE"
+      local STRING_LENGTH=30
+      DB_DUMP_ENCRYPTION_PASS_PHRASE="$(
+        tr -dc '[:alnum:]' < /dev/urandom | head -c "${STRING_LENGTH}"
+      )"
+      export DB_DUMP_ENCRYPTION_PASS_PHRASE
+    fi
+fi
+
 
 ########################################
 # Naming / retention
@@ -169,8 +193,8 @@ configure_env_variables() {
   local quoted_vars=(
     PATH EXTRA_CONF_DIR STORAGE_BACKEND ACCESS_KEY_ID
     DEFAULT_REGION BUCKET HOST_BASE HOST_BUCKET SSL_SECURE
-    DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_HOST
-    DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION
+    DUMP_ARGS RESTORE_ARGS POSTGRES_USER POSTGRES_HOST POSTGRES_PASS
+    DUMPPREFIX ARCHIVE_FILENAME DB_DUMP_ENCRYPTION DB_DUMP_ENCRYPTION_PASS_PHRASE
     PG_CONN_PARAMETERS DB_TABLES  CLEANUP_DRY_RUN
     CHECKSUM_VALIDATION CONSOLE_LOGGING MONITORING_ENDPOINT_COMMAND ENTRYPOINT_START JSON_LOGGING
   )
