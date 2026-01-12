@@ -73,7 +73,7 @@ To create a running container do:
     cp .example.env .env
     ```
    
-2) Start the services using docker compose version installed i.e.
+2) Start the services using docker compose
     ```bash
     docker-compose up -d 
     ```
