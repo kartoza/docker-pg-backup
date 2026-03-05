@@ -27,7 +27,8 @@ run_tests() {
   ${docker_cmd}  "${compose_args[@]}" up -d
 
   echo "Running backup for compose: ${compose_file}"
-  ${docker_cmd}  "${compose_args[@]}" exec pg_restore /backup-scripts/backups.sh
+  # Run with minimal env (like cron) so env comes solely from pgenv.sh - matches cron task setup
+  ${docker_cmd}  "${compose_args[@]}" exec pg_restore env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin /bin/bash /backup-scripts/backups.sh
 
   echo "Running unit tests for compose: ${compose_file}"
   ${docker_cmd}  "${compose_args[@]}" exec pg_restore /bin/bash /tests/test_upload.sh
