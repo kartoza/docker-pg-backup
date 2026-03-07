@@ -60,6 +60,23 @@ cd docker-pg-backup
 ./build.sh 
 ```
 
+### Publishing the image using Github Actions
+
+The GitHub Actions produce the following images:
+
+* kartoza/pg-backup:latest
+* kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+* kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}-$(date -u +%Y.%m.%d)
+
+If there is a bug in the kartoza/pg-backup:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MINOR_RELEASE}
+release, you need to update:
+
+`./github/workflows/deploy-image.yaml`
+
+and update `pgbackupPatchMajorVersionBugs` to yes to allow the action
+to update the current image otherwise it will only be updated once in the release
+cycle.
+
 ## Running Services using the Image
 
 

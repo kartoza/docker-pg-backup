@@ -27,6 +27,8 @@ jobs:
           - 3
         postgisMinorRelease:
           - 6
+        pgbackupPatchMajorVersionBugs:
+          - no
     steps:
       - uses: actions/checkout@v6
       - name: Set up QEMU
@@ -66,7 +68,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup
-            ${{ steps.check_hub_image_exists.outputs.check_image != 200 && format('{0}/pg-backup:{1}-{2}.{3}', secrets.DOCKERHUB_REPO,  matrix.postgresMajorVersion, matrix.postgisMajorVersion, matrix.postgisMinorRelease) || null}}
+            ${{ ( steps.check_hub_image_exists.outputs.check_image != 200 || matrix.pgbackupPatchMajorVersionBugs == 'yes' ) && format('{0}/pg-backup:{1}-{2}.{3}', secrets.DOCKERHUB_REPO,  matrix.postgresMajorVersion, matrix.postgisMajorVersion, matrix.postgisMinorRelease) || null}}
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--v${{ steps.current_date.outputs.formatted }}
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
