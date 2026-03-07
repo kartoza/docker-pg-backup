@@ -28,7 +28,7 @@ jobs:
         postgisMinorRelease:
           - 6
         pgbackupPatchMajorVersionBugs:
-          - no
+          - yes
     steps:
       - uses: actions/checkout@v6
       - name: Set up QEMU
