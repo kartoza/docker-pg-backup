@@ -8,6 +8,29 @@ monitoring_log() {
   log "[DB Monitoring] $*"
 }
 
+notify_monitoring_start() {
+  monitoring_log "notify_monitoring_start called"
+
+  # Command-based monitoring
+  if [[ -n "${MONITORING_ENDPOINT_COMMAND_START:-}" ]]; then
+    monitoring_log "notify_monitoring_start: running MONITORING_ENDPOINT_COMMAND_START ${MONITORING_ENDPOINT_COMMAND_START}"
+    eval "${MONITORING_ENDPOINT_COMMAND_START}"
+    return 0
+  fi
+
+  # Script-based monitoring
+  if [[ -n "${EXTRA_CONF_DIR:-}" ]] && \
+     [[ -f "${EXTRA_CONF_DIR}/backup_monitoring_start.sh" ]]; then
+    monitoring_log "notify_monitoring_start: running ${EXTRA_CONF_DIR}/backup_monitoring_start.sh"
+    bash "${EXTRA_CONF_DIR}/backup_monitoring_start.sh"
+    return 0
+  fi
+
+  # Safe fallback
+  monitoring_log "notify_monitoring_start: no start monitoring configured"
+  return 0
+}
+
 notify_monitoring() {
   local status="${1:-unknown}"
 
