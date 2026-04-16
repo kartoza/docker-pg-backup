@@ -90,6 +90,7 @@ init_logging
 
 
 log "Backup job started at $(date +%d-%B-%Y-%H-%M)" true
+notify_monitoring_start
 
 ############################################
 # DB list and readiness probe

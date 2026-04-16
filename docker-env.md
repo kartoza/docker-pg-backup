@@ -38,7 +38,8 @@ Default: `0` (no consolidation, all sub-daily backups are kept).
 midnight daily.
 * `DB_DUMP_ENCRYPTION` Boolean value specifying if you need the backups to be encrypted.
 * `RUN_ONCE` Useful to run the container as a once off job and exit. Useful in Kubernetes context
-* `MONITORING_ENDPOINT_COMMAND` Webhook command to run for monitoring success or failure of backups 
+* `MONITORING_ENDPOINT_COMMAND_START` Webhook command to run when a backup job starts
+* `MONITORING_ENDPOINT_COMMAND` Webhook command to run for monitoring success or failure of backups
 i.e. """curl -D - -X POST -G 'https://appsignal-endpoint.net/check_ins/heartbeats' -d 'api_key=YOUR-APP-LEVEL-API-KEY' -d 'identifier=YOUR-CHECK-IN-IDENTIFIER'"""
 * `CHECKSUM_VALIDATION` Boolean value to indicate whether you need to create a checksum of the
 database dump. This will be used in restore procedure. Defaults to False.
