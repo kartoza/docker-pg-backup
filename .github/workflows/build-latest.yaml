@@ -30,7 +30,7 @@ jobs:
         postgisMinorRelease:
           - 6
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
@@ -81,7 +81,7 @@ jobs:
           - monitoring
           - cron
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download artifact
         uses: actions/download-artifact@v8
         with:
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build-backup-image ]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download artifact
         uses: actions/download-artifact@v8
         with:
