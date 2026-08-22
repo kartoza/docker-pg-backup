@@ -1,0 +1,97 @@
+name: weekly-image-updates
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 0'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: weekly-image-updates
+  cancel-in-progress: false
+
+jobs:
+  check-postgis-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        include:
+          - postgresMajorVersion: 18
+            postgisMajorVersion: 3
+            postgisMinorRelease: 6
+
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Resolve current PostGIS image digest
+        id: postgis_image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          POSTGIS_IMAGE="kartoza/postgis:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}"
+          docker pull "$POSTGIS_IMAGE"
+          REPO_DIGEST=$(docker image inspect "$POSTGIS_IMAGE" --format '{{index .RepoDigests 0}}')
+          IMAGE_SHA="${REPO_DIGEST##*@}"
+
+          echo "Resolved $POSTGIS_IMAGE to $IMAGE_SHA"
+          echo "build_image_sha=$IMAGE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Read published image metadata
+        id: read_published_image_metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BACKUP_IMAGE="kartoza/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}"
+          docker pull "$BACKUP_IMAGE"
+          CONTAINER_ID=$(docker create "$BACKUP_IMAGE")
+          docker cp "${CONTAINER_ID}:/etc/kartoza/build_info.env" ./build_info.env
+          docker rm "$CONTAINER_ID"
+
+          VERSION_INFO=$(cat ./build_info.env)
+          echo "$VERSION_INFO"
+
+          PUBLISHED_SHA=$(echo "$VERSION_INFO" | sed -n 's/^BASE_IMAGE_DIGEST_SHA=//p')
+          echo "published_image_sha=$PUBLISHED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Determine whether a rebuild is needed
+        id: rebuild_check
+        shell: bash
+        env:
+          CURRENT_SHA: ${{ steps.postgis_image.outputs.build_image_sha }}
+          PUBLISHED_SHA: ${{ steps.read_published_image_metadata.outputs.published_image_sha }}
+        run: |
+          set -euo pipefail
+
+          echo "Current PostGIS image digest: $CURRENT_SHA"
+          echo "Published backup image digest: $PUBLISHED_SHA"
+
+          if [[ "$CURRENT_SHA" != "$PUBLISHED_SHA" ]]; then
+            echo "The PostGIS image changed; a rebuild is needed."
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "The backup image already uses the current PostGIS image."
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger tested image build
+        if: steps.rebuild_check.outputs.needs_build == 'true'
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build-latest.yaml',
+              ref: 'master'
+            })

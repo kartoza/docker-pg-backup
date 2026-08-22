@@ -9,6 +9,7 @@ FROM kartoza/postgis:$POSTGRES_MAJOR_VERSION-$POSTGIS_MAJOR_VERSION.${POSTGIS_MI
 ARG POSTGRES_MAJOR_VERSION
 ARG POSTGIS_MAJOR_VERSION
 ARG POSTGIS_MINOR_RELEASE
+ARG BUILD_IMAGE_SHA
 
 RUN apt-get -y update; apt-get -y --no-install-recommends install  cron python3-pip vim  gettext jq \
     && apt-get -y --purge autoremove && apt-get clean \
@@ -21,7 +22,13 @@ ENV \
 
 
 ADD scripts /backup-scripts
-RUN echo $POSTGRES_MAJOR_VERSION > /tmp/pg_version.txt && chmod 0755 /backup-scripts/*.sh
+RUN chmod 0755 /backup-scripts/*.sh
+RUN mkdir -p /etc/kartoza && \
+    printf '%s\n' \
+      "POSTGRES_MAJOR_VERSION=${POSTGRES_MAJOR_VERSION}" \
+      "BASE_IMAGE_DIGEST_SHA=${BUILD_IMAGE_SHA}" \
+      > /etc/kartoza/build_info.env
+
 RUN sed -i 's/PostGIS/PgBackup/' ~/.bashrc
 
 WORKDIR /backup-scripts

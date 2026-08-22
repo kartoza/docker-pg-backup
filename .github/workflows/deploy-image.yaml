@@ -58,6 +58,20 @@ jobs:
 
           echo "check_image=$status" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve PostGIS image digest
+        id: postgis_image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          POSTGIS_IMAGE="kartoza/postgis:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}"
+          docker pull "$POSTGIS_IMAGE"
+          REPO_DIGEST=$(docker image inspect "$POSTGIS_IMAGE" --format '{{index .RepoDigests 0}}')
+          IMAGE_SHA="${REPO_DIGEST##*@}"
+
+          echo "Resolved $POSTGIS_IMAGE to $IMAGE_SHA"
+          echo "build_image_sha=$IMAGE_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Build prod image
         id: docker_build_prod
         uses: docker/build-push-action@v7
@@ -73,7 +87,8 @@ jobs:
           build-args: |
             POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
             POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
-            POSTGIS_MINOR_VERSION=${{ matrix.postgisMinorRelease }}
+            POSTGIS_MINOR_RELEASE=${{ matrix.postgisMinorRelease }}
+            BUILD_IMAGE_SHA=${{ steps.postgis_image.outputs.build_image_sha }}
           cache-from: |
             type=gha,scope=test
             type=gha,scope=prod
