@@ -298,6 +298,16 @@ setup_metadata() {
   local backup_file="$1"
   local checksum_field=""
   local encryption_field=""
+  local postgres_major_version
+
+  postgres_major_version=$(sed -n \
+    's/^POSTGRES_MAJOR_VERSION=//p' \
+    /etc/kartoza/build_info.env 2>/dev/null || true)
+
+  if [[ ! "$postgres_major_version" =~ ^[0-9]+$ ]]; then
+    utils_log "ERROR: Invalid or missing POSTGRES_MAJOR_VERSION in /etc/kartoza/build_info.env"
+    return 1
+  fi
 
   # Conditional checksum
   if [[ "${CHECKSUM_VALIDATION,,}" =~ ^([Tt][Rr][Uu][Ee])$ ]] && [[ -f "${backup_file}.sha256" ]]; then
@@ -317,7 +327,7 @@ EOF
 
   cat > "${backup_file}.meta.json" <<EOF
 {
-  "postgres_major_version": $(cat /tmp/pg_version.txt)${encryption_field}${checksum_field}
+  "postgres_major_version": ${postgres_major_version}${encryption_field}${checksum_field}
 }
 EOF
 }
