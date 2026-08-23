@@ -129,6 +129,10 @@ jobs:
         run: echo "commit=$(git rev-parse --short "$GITHUB_SHA")" >> $GITHUB_OUTPUT
 
       - name: publish_release
+        if: |
+          github.actor != 'dependabot[bot]' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event != 'workflow_dispatch'
         id: tag_releases
         run: |
           gh release create v${{ matrix.postgresMajorVersion }}.${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--${{ steps.current_date.outputs.formatted }}--${{ steps.latest_commit_hash.outputs.commit }} --notes ${{ steps.latest_commit_hash.outputs.commit }} --target master --repo $GITHUB_REPOSITORY
