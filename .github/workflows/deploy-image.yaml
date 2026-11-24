@@ -8,6 +8,7 @@ on:
       - master
     types:
       - completed
+
 jobs:
   deploy-image:
     if: |
@@ -19,17 +20,33 @@ jobs:
     runs-on: ubuntu-latest
     env:
       latest-ref: refs/heads/develop
-    strategy:
-      matrix:
-        postgresMajorVersion:
-          - 18
-        postgisMajorVersion:
-          - 3
-        postgisMinorRelease:
-          - 6
-        pgbackupPatchMajorVersionBugs:
-          - yes
+    # Expose metadata to dependent jobs
+    outputs:
+      postgres_major_version: ${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}
+      postgis_major_version: ${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}
+      postgis_minor_release: ${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}
     steps:
+      - name: Read published image metadata
+        id: read_published_image_metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull kartoza/postgis:latest
+          CONTAINER_ID=$(docker create kartoza/postgis:latest)
+          docker cp "${CONTAINER_ID}:/etc/kartoza/build_info.env" ./build_info.env
+          docker rm "${CONTAINER_ID}"
+
+          VERSION_INFO=$(cat ./build_info.env)
+          echo "$VERSION_INFO"
+
+          POSTGRES_MAJOR_VERSION=$(echo "$VERSION_INFO" | grep '^POSTGRES_MAJOR_VERSION=' | cut -d= -f2)
+          POSTGIS_MAJOR_VERSION=$(echo "$VERSION_INFO" | grep '^POSTGIS_MAJOR_VERSION=' | cut -d= -f2)
+          POSTGIS_MINOR_RELEASE=$(echo "$VERSION_INFO" | grep '^POSTGIS_MINOR_RELEASE=' | cut -d= -f2)
+
+          echo "POSTGRES_MAJOR_VERSION=$POSTGRES_MAJOR_VERSION" >> "$GITHUB_OUTPUT"
+          echo "POSTGIS_MAJOR_VERSION=$POSTGIS_MAJOR_VERSION" >> "$GITHUB_OUTPUT"
+          echo "POSTGIS_MINOR_RELEASE=$POSTGIS_MINOR_RELEASE" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v7
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -51,11 +68,9 @@ jobs:
         shell: bash
         run: |
           set -e
-
           status=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://hub.docker.com/v2/repositories/kartoza/pg-backup/tags/${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}/
+            https://hub.docker.com/v2/repositories/kartoza/pg-backup/tags/${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}-${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}.${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}/
           )
-
           echo "check_image=$status" >> "$GITHUB_OUTPUT"
 
       - name: Resolve PostGIS image digest
@@ -63,12 +78,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          POSTGIS_IMAGE="kartoza/postgis:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}"
+          POSTGIS_IMAGE="kartoza/postgis:${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}-${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}.${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}"
           docker pull "$POSTGIS_IMAGE"
           REPO_DIGEST=$(docker image inspect "$POSTGIS_IMAGE" --format '{{index .RepoDigests 0}}')
           IMAGE_SHA="${REPO_DIGEST##*@}"
-
           echo "Resolved $POSTGIS_IMAGE to $IMAGE_SHA"
           echo "build_image_sha=$IMAGE_SHA" >> "$GITHUB_OUTPUT"
 
@@ -82,12 +95,12 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_REPO }}/pg-backup
-            ${{ ( steps.check_hub_image_exists.outputs.check_image != 200 || matrix.pgbackupPatchMajorVersionBugs == 'yes' ) && format('{0}/pg-backup:{1}-{2}.{3}', secrets.DOCKERHUB_REPO,  matrix.postgresMajorVersion, matrix.postgisMajorVersion, matrix.postgisMinorRelease) || null}}
-            ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--v${{ steps.current_date.outputs.formatted }}
+            ${{ ( steps.check_hub_image_exists.outputs.check_image != 200 || matrix.pgbackupPatchMajorVersionBugs == 'yes' ) && format('{0}/pg-backup:{1}-{2}.{3}', secrets.DOCKERHUB_REPO,  steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION, steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION, steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE) || null}}
+            ${{ secrets.DOCKERHUB_REPO }}/pg-backup:${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}-${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}.${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}--v${{ steps.current_date.outputs.formatted }}
           build-args: |
-            POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
-            POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
-            POSTGIS_MINOR_RELEASE=${{ matrix.postgisMinorRelease }}
+            POSTGRES_MAJOR_VERSION=${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}
+            POSTGIS_MAJOR_VERSION=${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}
+            POSTGIS_MINOR_RELEASE=${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}
             BUILD_IMAGE_SHA=${{ steps.postgis_image.outputs.build_image_sha }}
           cache-from: |
             type=gha,scope=test
@@ -102,7 +115,7 @@ jobs:
       github.actor != 'dependabot[bot]' &&
       !(
         contains(github.event.pull_request.title, '[skip-release]') ||
-        contains(github.event.comment.body, '/skiprelease') 
+        contains(github.event.comment.body, '/skiprelease')
       ) &&  github.event.workflow_run.conclusion == 'success'
     needs: [ deploy-image ]
     strategy:
@@ -135,6 +148,11 @@ jobs:
           github.event.workflow_run.event != 'workflow_dispatch'
         id: tag_releases
         run: |
-          gh release create v${{ matrix.postgresMajorVersion }}.${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}--${{ steps.current_date.outputs.formatted }}--${{ steps.latest_commit_hash.outputs.commit }} --notes ${{ steps.latest_commit_hash.outputs.commit }} --target master --repo $GITHUB_REPOSITORY
+          # FIX: use needs.deploy-image.outputs (job output), not a step from another job
+          gh release create \
+            "v${{ needs.deploy-image.outputs.postgres_major_version }}.${{ needs.deploy-image.outputs.postgis_major_version }}.${{ needs.deploy-image.outputs.postgis_minor_release }}--${{ steps.current_date.outputs.formatted }}--${{ steps.latest_commit_hash.outputs.commit }}" \
+            --notes "${{ steps.latest_commit_hash.outputs.commit }}" \
+            --target master \
+            --repo $GITHUB_REPOSITORY
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
