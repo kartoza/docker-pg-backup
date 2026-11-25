@@ -1,97 +1,162 @@
-name: weekly-image-updates
-
+name: build-latest
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 4 * * 0'
-
-permissions:
-  actions: write
-  contents: read
-
-concurrency:
-  group: weekly-image-updates
-  cancel-in-progress: false
-
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'Dockerfile'
+      - 'scripts/**'
+      - 'build_data/**'
+      - '.github/workflows/**'
+  push:
+    branches:
+      - master
 jobs:
-  check-postgis-image:
+  build-backup-image:
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      !(
+        contains(github.event.pull_request.title, '[skip-release]') ||
+        contains(github.event.comment.body, '/skiprelease')
+      )
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      matrix:
-        include:
-          - postgresMajorVersion: 18
-            postgisMajorVersion: 3
-            postgisMinorRelease: 6
-
     steps:
-      - name: Login to DockerHub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - uses: actions/checkout@v7
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Read published image metadata
+        id: read_published_image_metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull kartoza/postgis:latest
+          CONTAINER_ID=$(docker create kartoza/postgis:latest)
+          docker cp "${CONTAINER_ID}:/etc/kartoza/build_info.env" ./build_info.env
+          docker rm "${CONTAINER_ID}"
 
-      - name: Resolve current PostGIS image digest
+          VERSION_INFO=$(cat ./build_info.env)
+          echo "$VERSION_INFO"
+
+          POSTGRES_MAJOR_VERSION=$(echo "$VERSION_INFO" | grep '^POSTGRES_MAJOR_VERSION=' | cut -d= -f2)
+          POSTGIS_MAJOR_VERSION=$(echo "$VERSION_INFO" | grep '^POSTGIS_MAJOR_VERSION=' | cut -d= -f2)
+          POSTGIS_MINOR_RELEASE=$(echo "$VERSION_INFO" | grep '^POSTGIS_MINOR_RELEASE=' | cut -d= -f2)
+
+          echo "POSTGRES_MAJOR_VERSION=$POSTGRES_MAJOR_VERSION" >> "$GITHUB_OUTPUT"
+          echo "POSTGIS_MAJOR_VERSION=$POSTGIS_MAJOR_VERSION" >> "$GITHUB_OUTPUT"
+          echo "POSTGIS_MINOR_RELEASE=$POSTGIS_MINOR_RELEASE" >> "$GITHUB_OUTPUT"
+      - name: Resolve PostGIS image digest
         id: postgis_image
         shell: bash
         run: |
           set -euo pipefail
 
-          POSTGIS_IMAGE="kartoza/postgis:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}"
+          POSTGIS_IMAGE="kartoza/postgis:${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}-${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}.${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}"
           docker pull "$POSTGIS_IMAGE"
           REPO_DIGEST=$(docker image inspect "$POSTGIS_IMAGE" --format '{{index .RepoDigests 0}}')
           IMAGE_SHA="${REPO_DIGEST##*@}"
 
           echo "Resolved $POSTGIS_IMAGE to $IMAGE_SHA"
           echo "build_image_sha=$IMAGE_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Read published image metadata
-        id: read_published_image_metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          BACKUP_IMAGE="kartoza/pg-backup:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}"
-          docker pull "$BACKUP_IMAGE"
-          CONTAINER_ID=$(docker create "$BACKUP_IMAGE")
-          docker cp "${CONTAINER_ID}:/etc/kartoza/build_info.env" ./build_info.env
-          docker rm "$CONTAINER_ID"
-
-          VERSION_INFO=$(cat ./build_info.env)
-          echo "$VERSION_INFO"
-
-          PUBLISHED_SHA=$(echo "$VERSION_INFO" | sed -n 's/^BASE_IMAGE_DIGEST_SHA=//p')
-          echo "published_image_sha=$PUBLISHED_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Determine whether a rebuild is needed
-        id: rebuild_check
-        shell: bash
-        env:
-          CURRENT_SHA: ${{ steps.postgis_image.outputs.build_image_sha }}
-          PUBLISHED_SHA: ${{ steps.read_published_image_metadata.outputs.published_image_sha }}
-        run: |
-          set -euo pipefail
-
-          echo "Current PostGIS image digest: $CURRENT_SHA"
-          echo "Published backup image digest: $PUBLISHED_SHA"
-
-          if [[ "$CURRENT_SHA" != "$PUBLISHED_SHA" ]]; then
-            echo "The PostGIS image changed; a rebuild is needed."
-            echo "needs_build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "The backup image already uses the current PostGIS image."
-            echo "needs_build=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Trigger tested image build
-        if: steps.rebuild_check.outputs.needs_build == 'true'
-        uses: actions/github-script@v9
+      - name: Build image for testing
+        id: docker_build_testing_image
+        uses: docker/build-push-action@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'build-latest.yaml',
-              ref: 'master'
-            })
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          tags: kartoza/pg-backup:manual-build
+          outputs: type=docker,dest=/tmp/pg-backup.tar
+          build-args: |
+            POSTGRES_MAJOR_VERSION=${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}
+            POSTGIS_MAJOR_VERSION=${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}
+            POSTGIS_MINOR_RELEASE=${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}
+            BUILD_IMAGE_SHA=${{ steps.postgis_image.outputs.build_image_sha }}
+          cache-from: |
+            type=gha,scope=test
+            type=gha,scope=prod
+            type=gha,scope=base
+          cache-to: type=gha,scope=test
+          target: postgis-backup-test
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: kartoza-pg-backup
+          path: /tmp/pg-backup.tar
+
+  run-scenario-tests:
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      !(
+        contains(github.event.pull_request.title, '[skip-release]') ||
+        contains(github.event.comment.body, '/skiprelease')
+      )
+    runs-on: ubuntu-latest
+    needs: [ build-backup-image ]
+    strategy:
+      matrix:
+        scenario:
+          - file_restore
+          - s3_upload
+          - s3_restore
+          - ownership
+          - retentions
+          - monitoring
+          - cron
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: kartoza-pg-backup
+          path: /tmp
+      - name: Load image
+        run: |
+          docker load --input /tmp/pg-backup.tar
+
+      - name: Run scenario test ${{ matrix.scenario }}
+        working-directory: scenario_tests/${{ matrix.scenario }}
+        env:
+          COMPOSE_INTERACTIVE_NO_CLI: 1
+          PRINT_TEST_LOGS: 1
+        run: |
+          bash ./test.sh
+
+  push-internal-pr-images:
+    if: |
+      github.event_name == 'pull_request' && 
+      github.event.pull_request.base.repo.url == github.event.pull_request.head.repo.url && 
+      github.actor != 'dependabot[bot]'  &&
+      !(
+        contains(github.event.pull_request.title, '[skip-release]') ||
+        contains(github.event.comment.body, '/skiprelease')
+      )
+    runs-on: ubuntu-latest
+    needs: [ build-backup-image ]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: kartoza-pg-backup
+          path: /tmp
+      - name: Load image
+        run: |
+          docker load --input /tmp/pg-backup.tar
+      - name: Login to DockerHub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ secrets.DOCKERHUB_REPO}}/pg-backup
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=ref,event=pr

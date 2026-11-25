@@ -21,27 +21,39 @@ jobs:
         contains(github.event.comment.body, '/skiprelease')
       )
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        postgresMajorVersion:
-          - 18
-        postgisMajorVersion:
-          - 3
-        postgisMinorRelease:
-          - 6
     steps:
       - uses: actions/checkout@v7
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+      - name: Read published image metadata
+        id: read_published_image_metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull kartoza/postgis:latest
+          CONTAINER_ID=$(docker create kartoza/postgis:latest)
+          docker cp "${CONTAINER_ID}:/etc/kartoza/build_info.env" ./build_info.env
+          docker rm "${CONTAINER_ID}"
+
+          VERSION_INFO=$(cat ./build_info.env)
+          echo "$VERSION_INFO"
+
+          POSTGRES_MAJOR_VERSION=$(echo "$VERSION_INFO" | grep '^POSTGRES_MAJOR_VERSION=' | cut -d= -f2)
+          POSTGIS_MAJOR_VERSION=$(echo "$VERSION_INFO" | grep '^POSTGIS_MAJOR_VERSION=' | cut -d= -f2)
+          POSTGIS_MINOR_RELEASE=$(echo "$VERSION_INFO" | grep '^POSTGIS_MINOR_RELEASE=' | cut -d= -f2)
+
+          echo "POSTGRES_MAJOR_VERSION=$POSTGRES_MAJOR_VERSION" >> "$GITHUB_OUTPUT"
+          echo "POSTGIS_MAJOR_VERSION=$POSTGIS_MAJOR_VERSION" >> "$GITHUB_OUTPUT"
+          echo "POSTGIS_MINOR_RELEASE=$POSTGIS_MINOR_RELEASE" >> "$GITHUB_OUTPUT"
       - name: Resolve PostGIS image digest
         id: postgis_image
         shell: bash
         run: |
           set -euo pipefail
 
-          POSTGIS_IMAGE="kartoza/postgis:${{ matrix.postgresMajorVersion }}-${{ matrix.postgisMajorVersion }}.${{ matrix.postgisMinorRelease }}"
+          POSTGIS_IMAGE="kartoza/postgis:${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}-${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}.${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}"
           docker pull "$POSTGIS_IMAGE"
           REPO_DIGEST=$(docker image inspect "$POSTGIS_IMAGE" --format '{{index .RepoDigests 0}}')
           IMAGE_SHA="${REPO_DIGEST##*@}"
@@ -59,9 +71,9 @@ jobs:
           tags: kartoza/pg-backup:manual-build
           outputs: type=docker,dest=/tmp/pg-backup.tar
           build-args: |
-            POSTGRES_MAJOR_VERSION=${{ matrix.postgresMajorVersion }}
-            POSTGIS_MAJOR_VERSION=${{ matrix.postgisMajorVersion }}
-            POSTGIS_MINOR_RELEASE=${{ matrix.postgisMinorRelease }}
+            POSTGRES_MAJOR_VERSION=${{ steps.read_published_image_metadata.outputs.POSTGRES_MAJOR_VERSION }}
+            POSTGIS_MAJOR_VERSION=${{ steps.read_published_image_metadata.outputs.POSTGIS_MAJOR_VERSION }}
+            POSTGIS_MINOR_RELEASE=${{ steps.read_published_image_metadata.outputs.POSTGIS_MINOR_RELEASE }}
             BUILD_IMAGE_SHA=${{ steps.postgis_image.outputs.build_image_sha }}
           cache-from: |
             type=gha,scope=test
@@ -148,5 +160,3 @@ jobs:
             type=semver,pattern={{version}}
             type=ref,event=branch
             type=ref,event=pr
-
-      

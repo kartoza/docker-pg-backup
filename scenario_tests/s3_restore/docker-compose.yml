@@ -23,19 +23,27 @@ services:
       test: "PGPASSWORD=docker pg_isready -h 127.0.0.1 -U docker -d gis"
 
   minio:
-    image: quay.io/minio/minio
+    image: rustfs/rustfs:latest
+    container_name: rustfs_dev
+    command: /data
     environment:
-      - MINIO_ROOT_USER=minio_admin
-      - MINIO_ROOT_PASSWORD=secure_minio_secret
-    entrypoint: /bin/bash
-    command: -c 'minio server /data --console-address ":9001"'
-    volumes:
-      - minio_data:/data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-minio_admin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-secure_minio_secret}
+      RUSTFS_CORS_ALLOWED_ORIGINS: '*'
     ports:
       - "9000:9000"
       - "9001:9001"
+    volumes:
+      - rustfs-data:/data
     healthcheck:
-      test: curl --fail -s http://localhost:9000/ || exit 1
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/health" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
 
   pg_restore:
     image: kartoza/pg-backup:${TAG:-manual-build}
